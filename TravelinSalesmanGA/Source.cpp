@@ -11,9 +11,6 @@
 using namespace std;
 using namespace std::chrono;
 
-//not mutating?
-//need to debug a bit
-//comment test
 //Problem parameters
 const int NUM_CITIES = 10;
 const int POP_SIZE = 12;
@@ -112,7 +109,6 @@ int main() {
 		copy(begin(picks), end(picks), begin(newPicks));
 		int newPath[NUM_CITIES] = {};
 		int n = static_cast<int>(sizeof(newPicks) / sizeof(*newPicks));
-
 		//my way of populating random genes, Could try and think of a faster way, but this isn't too bad
 		for (int i = 0; i < NUM_CITIES; i++) {
 			int randIndex = rand() % n;
@@ -123,7 +119,6 @@ int main() {
 			newTrip.addCity(initCities[numToAdd]);
 		}
 		genePool.push_back(newTrip);
-
 	}
 
 	for (auto& gene : genePool) {
@@ -177,8 +172,7 @@ int main() {
 				gene.setBoolProb(0); //re setting back to 0
 			}
 		}
-		//now we have a list of parents
-		//we can breed
+
 		//__ __ __ two per, iterating
 		vector<Trip> children;
 		for(size_t i = 0;i+1<parents.size();i+=2){
