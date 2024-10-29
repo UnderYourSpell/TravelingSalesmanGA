@@ -18,9 +18,9 @@ const float CROSSOVER_PER = 0.5;
 const float MUTATION_PER = 0.5; //20% mutation rate
 const int ELITISM = 0;
 const int REST = 10;
-const int MAX_GENERATIONS = 10;
+const int MAX_GENERATIONS = 30;
 
-float genRandom() {
+float genRandom() { //generates random number between 0 and 1
 	return ((float)rand()) / RAND_MAX;
 }
 
@@ -104,18 +104,17 @@ int main() {
 
 	for (int i = 0; i < POP_SIZE; i++) {
 		Trip newTrip;
-
 		int newPicks[NUM_CITIES];
 		copy(begin(picks), end(picks), begin(newPicks));
 		int newPath[NUM_CITIES] = {};
 		int n = static_cast<int>(sizeof(newPicks) / sizeof(*newPicks));
-		//my way of populating random genes, Could try and think of a faster way, but this isn't too bad
+		//my way of populating random genes O(n)
 		for (int i = 0; i < NUM_CITIES; i++) {
 			int randIndex = rand() % n;
 			int numToAdd = newPicks[randIndex];
 			newPath[i] = numToAdd;
-			auto end = remove(newPicks, newPicks + n, numToAdd);
-			n = end - newPicks;
+			newPicks[randIndex] = newPicks[n - 1];
+			n--;
 			newTrip.addCity(initCities[numToAdd]);
 		}
 		genePool.push_back(newTrip);
@@ -125,8 +124,8 @@ int main() {
 		gene.calcPathLength();
 		gene.printPath();
 		gene.printPathLength();
-		cout << endl;
 	}
+
 	for (int p = 0; p <= MAX_GENERATIONS; p++) {
 		
 		//setting up for the roulette wheel, need a total sum of inverted path's (inverted because we are minimizing not maximizing)
@@ -208,6 +207,11 @@ int main() {
 		genePool = newGen;
 		newGen.clear();
 	}
+
+	cout << "Best Solution" << endl;
+	genePool[0].printPath();
+	genePool[0].printPathLength();
+	cout << endl;
 
 	cout << "Final Generation" << endl;
 	for (auto& gene : genePool) {
