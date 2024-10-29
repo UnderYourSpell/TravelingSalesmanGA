@@ -106,13 +106,11 @@ int main() {
 		Trip newTrip;
 		int newPicks[NUM_CITIES];
 		copy(begin(picks), end(picks), begin(newPicks));
-		int newPath[NUM_CITIES] = {};
 		int n = static_cast<int>(sizeof(newPicks) / sizeof(*newPicks));
 		//my way of populating random genes O(n)
 		for (int i = 0; i < NUM_CITIES; i++) {
 			int randIndex = rand() % n;
 			int numToAdd = newPicks[randIndex];
-			newPath[i] = numToAdd;
 			newPicks[randIndex] = newPicks[n - 1];
 			n--;
 			newTrip.addCity(initCities[numToAdd]);
@@ -124,6 +122,7 @@ int main() {
 		gene.calcPathLength();
 		gene.printPath();
 		gene.printPathLength();
+		cout << endl;
 	}
 
 	for (int p = 0; p <= MAX_GENERATIONS; p++) {
