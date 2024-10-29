@@ -16,9 +16,9 @@ const int NUM_CITIES = 10;
 const int POP_SIZE = 12;
 const float CROSSOVER_PER = 0.5;
 const float MUTATION_PER = 0.5; //20% mutation rate
-const int ELITISM = 0;
+const int ELITISM = 1;
 const int REST = 10;
-const int MAX_GENERATIONS = 30;
+const int MAX_GENERATIONS = 500;
 
 float genRandom() { //generates random number between 0 and 1
 	return ((float)rand()) / RAND_MAX;
@@ -125,6 +125,8 @@ int main() {
 		cout << endl;
 	}
 
+	vector<Trip> bestOfGen;
+
 	for (int p = 0; p <= MAX_GENERATIONS; p++) {
 		
 		//setting up for the roulette wheel, need a total sum of inverted path's (inverted because we are minimizing not maximizing)
@@ -205,17 +207,19 @@ int main() {
 		genePool.clear();
 		genePool = newGen;
 		newGen.clear();
+		bestOfGen.push_back(genePool[0]);
 	}
 
-	cout << "Best Solution" << endl;
-	genePool[0].printPath();
-	genePool[0].printPathLength();
-	cout << endl;
+	bestOfGen.back().printPath();
+	bestOfGen.back().printPathLength();
+	
 
+	/*
 	cout << "Final Generation" << endl;
 	for (auto& gene : genePool) {
 		cout << gene.getPathLength() << endl;
 	}
+	*/
 	auto stop = high_resolution_clock::now();
 	auto duration = duration_cast<microseconds>(stop - start);
 	cout << endl << "Time taken by function: "
