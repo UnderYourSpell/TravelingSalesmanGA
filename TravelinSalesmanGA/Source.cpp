@@ -15,7 +15,7 @@ using namespace std::chrono;
 const int NUM_CITIES = 10;
 const int POP_SIZE = 12;
 const float CROSSOVER_PER = 0.5;
-const float MUTATION_PER = 0.5; //20% mutation rate
+const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 1;
 const int REST = 10;
 const int MAX_GENERATIONS = 500;
@@ -210,9 +210,10 @@ int main() {
 		bestOfGen.push_back(genePool[0]);
 	}
 
+	cout << endl << "Best Solution: " << endl;
 	bestOfGen.back().printPath();
 	bestOfGen.back().printPathLength();
-	
+	cout << endl;
 
 	/*
 	cout << "Final Generation" << endl;
