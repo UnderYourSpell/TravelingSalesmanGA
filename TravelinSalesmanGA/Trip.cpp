@@ -62,7 +62,7 @@ void Trip::printPath()
 	for (auto& element : path) {
 		std::cout << element.getID() << " ";
 	}
-	std::cout << path.front().getID() << " ";
+	//std::cout << path.front().getID() << " ";
 }
 
 void Trip::calcInvertedProb()
