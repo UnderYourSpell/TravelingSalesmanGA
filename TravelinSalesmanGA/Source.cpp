@@ -16,13 +16,13 @@ using namespace std;
 using namespace std::chrono;
 
 //Problem parameters
-const int NUM_CITIES = 51;
+const int NUM_CITIES = 10;
 const int POP_SIZE = 12;
 const float CROSSOVER_PER = 0.5;
 const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 1;
 const int REST = 10;
-const int MAX_GENERATIONS = 1000;
+const int MAX_GENERATIONS = 100;
 
 float genRandom() { //generates random number between 0 and 1
 	return ((float)rand()) / RAND_MAX;
@@ -130,7 +130,7 @@ int main() {
 	srand(time(NULL));
 	int run = 1;
 	int roulette_wheel = 1; //use roulette wheel or not
-	string filePath = "./tsp/eil51.tsp";
+	string filePath = "./tsp/original10.tsp";
 	TSPProblemData data = readTSPFile(filePath);
 	cout << data.name << endl;
 	cout << data.comment << endl;
@@ -220,17 +220,10 @@ int main() {
 
 			//__ __ __ two per, iterating
 			vector<Trip> children;
-			//vector<thread> threads;
-			//void spCrossover(Trip& gene1, Trip& gene2, vector<Trip> &children) {
 			for(size_t i = 0;i+1<parents.size();i+=2){
-				//threads.push_back(thread(spCrossover, cref(parents[i]), cref(parents[i + 1]), ref(children)));
 				spCrossover(parents[i], parents[i + 1],children);
 			}
-			/*
-			for (auto& th : threads) {
-				th.join();
-			}
-			*/
+			
 			
 			//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
 			for (size_t i = 0; i < children.size(); i++) {
