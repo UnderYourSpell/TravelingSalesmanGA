@@ -8,6 +8,9 @@
 #include <numeric>
 #include <time.h>
 #include <fstream>
+#include <unordered_set>
+#include <thread>
+#include <functional> // for std::ref
 
 using namespace std;
 using namespace std::chrono;
@@ -19,7 +22,7 @@ const float CROSSOVER_PER = 0.5;
 const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 1;
 const int REST = 10;
-const int MAX_GENERATIONS = 500;
+const int MAX_GENERATIONS = 1000;
 
 float genRandom() { //generates random number between 0 and 1
 	return ((float)rand()) / RAND_MAX;
@@ -29,43 +32,35 @@ bool comparePaths(Trip i1, Trip i2) {
 	return(i1.getPathLength() < i2.getPathLength());
 }
 
-
 void spCrossover(Trip& gene1, Trip& gene2, vector<Trip> &children) {
 	int cut = rand() % (NUM_CITIES-1); //random placement 1-9 in this case
 	vector<City> path1 = gene1.getPath(); //path 1
 	vector<City> path2 = gene2.getPath(); //path 2
 	vector<City> child1;
 	vector<City> child2;
-	
+
 	//parent 1&2; 0:cut
+	unordered_set<string> idsInChild2;
+	unordered_set<string> idsInChild1;
 	for (int i = 0; i <= cut; i++) {
 		child1.push_back(path1[i]);
 		child2.push_back(path2[i]);
+		idsInChild1.insert(path1[i].getID());
+		idsInChild2.insert(path2[i].getID());
 	}
-	//can consider hashing as well because this is slow
 
-	//setting child 1
-	for (size_t i = 0; i < path2.size(); i++) {
-		int found = 0;
-		for (size_t j = 0; j < child1.size(); j++) {
-			if (child1[j].getID() == path2[i].getID()) {
-				found = 1;
-				break;
-			}
+	for (auto& city : path1) {
+		if (idsInChild2.insert(city.getID()).second) {  // Only inserts if ID is unique
+			child2.push_back(city);
 		}
-		if (found != 1) child1.push_back(path2[i]);
 	}
-	//setting child 2
-	for (size_t i = 0; i < path1.size(); i++) {
-		int found = 0;
-		for (size_t j = 0; j < child2.size(); j++) {
-			if (child2[j].getID() == path1[i].getID()) {
-				found = 1;
-				break;
-			}
+
+	for (auto& city : path2) {
+		if (idsInChild1.insert(city.getID()).second) {  // Only inserts if ID is unique
+			child1.push_back(city);
 		}
-		if (found != 1) child2.push_back(path1[i]);
 	}
+	
 	Trip child1Trip(child1);
 	Trip child2Trip(child2);
 	child1Trip.calcPathLength(); //setting the path length
@@ -134,6 +129,7 @@ TSPProblemData readTSPFile(const string& filepath) {
 int main() {
 	srand(time(NULL));
 	int run = 1;
+	int roulette_wheel = 1; //use roulette wheel or not
 	string filePath = "./tsp/eil51.tsp";
 	TSPProblemData data = readTSPFile(filePath);
 	cout << data.name << endl;
@@ -175,6 +171,7 @@ int main() {
 		cout << endl;
 	}
 	*/
+		vector<Trip> newGen;
 		for (int p = 0; p <= MAX_GENERATIONS; p++) {
 		
 			//setting up for the roulette wheel, need a total sum of inverted path's (inverted because we are minimizing not maximizing)
@@ -223,9 +220,18 @@ int main() {
 
 			//__ __ __ two per, iterating
 			vector<Trip> children;
+			//vector<thread> threads;
+			//void spCrossover(Trip& gene1, Trip& gene2, vector<Trip> &children) {
 			for(size_t i = 0;i+1<parents.size();i+=2){
+				//threads.push_back(thread(spCrossover, cref(parents[i]), cref(parents[i + 1]), ref(children)));
 				spCrossover(parents[i], parents[i + 1],children);
 			}
+			/*
+			for (auto& th : threads) {
+				th.join();
+			}
+			*/
+			
 			//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
 			for (size_t i = 0; i < children.size(); i++) {
 				float mutateThreshold = genRandom();
@@ -238,7 +244,6 @@ int main() {
 			//1. Grab top 2 from original gene pool
 			//2. Put all parents and children in the same vector - add children to parent vector
 			//3. sort the parent vector, grab enough to fill enough for a population
-			vector<Trip> newGen;
 			sort(genePool.begin(), genePool.end(), comparePaths); //sort the original
 			//1.
 			for (auto i = genePool.begin(); i != genePool.begin() + ELITISM; ++i) {
