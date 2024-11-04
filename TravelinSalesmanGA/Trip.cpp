@@ -62,6 +62,7 @@ void Trip::printPath()
 	for (auto& element : path) {
 		std::cout << element.getID() << " ";
 	}
+	cout << endl;
 	//std::cout << path.front().getID() << " ";
 }
 

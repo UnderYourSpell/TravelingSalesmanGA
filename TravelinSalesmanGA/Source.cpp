@@ -11,12 +11,14 @@
 #include <unordered_set>
 #include <thread>
 #include <functional> // for std::ref
+#include <map>
+#include <set>
+#include "crossover.h"
 
 using namespace std;
 using namespace std::chrono;
 
 //Problem parameters
-const int NUM_CITIES = 10;
 const int POP_SIZE = 12;
 const float CROSSOVER_PER = 0.5;
 const float MUTATION_PER = 0.5; //50% mutation rate
@@ -24,61 +26,11 @@ const int ELITISM = 1;
 const int REST = 10;
 const int MAX_GENERATIONS = 100;
 
-float genRandom() { //generates random number between 0 and 1
-	return ((float)rand()) / RAND_MAX;
-}
 
 bool comparePaths(Trip i1, Trip i2) {
 	return(i1.getPathLength() < i2.getPathLength());
 }
 
-void spCrossover(Trip& gene1, Trip& gene2, vector<Trip> &children) {
-	int cut = rand() % (NUM_CITIES-1); //random placement 1-9 in this case
-	vector<City> path1 = gene1.getPath(); //path 1
-	vector<City> path2 = gene2.getPath(); //path 2
-	vector<City> child1;
-	vector<City> child2;
-
-	//parent 1&2; 0:cut
-	unordered_set<string> idsInChild2;
-	unordered_set<string> idsInChild1;
-	for (int i = 0; i <= cut; i++) {
-		child1.push_back(path1[i]);
-		child2.push_back(path2[i]);
-		idsInChild1.insert(path1[i].getID());
-		idsInChild2.insert(path2[i].getID());
-	}
-
-	for (auto& city : path1) {
-		if (idsInChild2.insert(city.getID()).second) {  // Only inserts if ID is unique
-			child2.push_back(city);
-		}
-	}
-
-	for (auto& city : path2) {
-		if (idsInChild1.insert(city.getID()).second) {  // Only inserts if ID is unique
-			child1.push_back(city);
-		}
-	}
-	
-	Trip child1Trip(child1);
-	Trip child2Trip(child2);
-	child1Trip.calcPathLength(); //setting the path length
-	child2Trip.calcPathLength();
-	children.push_back(child1Trip);
-	children.push_back(child2Trip);
-}
-
-void mutate(Trip& gene) { //swapping two random cities
-	int firstSwapIndex = rand() % (NUM_CITIES - 1);
-	int secondSwapIndex = rand() % (NUM_CITIES - 1);
-	vector<City> mutatedPath = gene.getPath();
-	City temp = mutatedPath[firstSwapIndex];
-	mutatedPath[firstSwapIndex] = mutatedPath[secondSwapIndex];
-	mutatedPath[secondSwapIndex] = temp;
-	gene.setPath(mutatedPath);
-	gene.calcPathLength();
-}
 
 struct TSPProblemData {
 	string name;
@@ -126,11 +78,29 @@ TSPProblemData readTSPFile(const string& filepath) {
 	return data;
 }
 
+//globally setting the crossover function before we start, saves time on branching in the simulation
+using CrossoverFunc = void(*)(Trip&, Trip&, std::vector<Trip>&);
+CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
+	if (crossoverType == "UX") {
+		return uniformCrossover;
+	}
+	else if (crossoverType == "PMX") {
+		return partiallyMappedCrossover;
+	}
+	else if (crossoverType == "SPX") {
+		return spCrossover;
+	}
+	return nullptr; // Default case or handle error
+}
+
 int main() {
 	srand(time(NULL));
 	int run = 1;
 	int roulette_wheel = 1; //use roulette wheel or not
-	string filePath = "./tsp/original10.tsp";
+	string crossoverType = "UX"; //SPX,PMX,UX...can optimize the branching with these
+	CrossoverFunc crossoverFunction = selectCrossoverFunction(crossoverType);
+	cout << "Using crossover funciton: " << crossoverType << endl;
+	string filePath = "./tsp/att48.tsp";
 	TSPProblemData data = readTSPFile(filePath);
 	cout << data.name << endl;
 	cout << data.comment << endl;
@@ -220,8 +190,10 @@ int main() {
 
 			//__ __ __ two per, iterating
 			vector<Trip> children;
+			//change this so we dont check every time
+			
 			for(size_t i = 0;i+1<parents.size();i+=2){
-				spCrossover(parents[i], parents[i + 1],children);
+				crossoverFunction(parents[i], parents[i + 1],children);
 			}
 			
 			
@@ -267,9 +239,9 @@ int main() {
 		}
 		*/
 		auto stop = high_resolution_clock::now();
-		auto duration = duration_cast<microseconds>(stop - start);
+		auto duration = duration_cast<seconds>(stop - start);
 		cout << endl << "Time taken by function: "
-			<< duration.count() << " micro Seconds" << endl;
+			<< duration.count() << " Seconds" << endl;
 		return 0;
 	}
 }
