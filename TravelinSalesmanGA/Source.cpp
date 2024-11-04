@@ -93,14 +93,16 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 	return nullptr; // Default case or handle error
 }
 
+
 int main() {
 	srand(time(NULL));
 	int run = 1;
 	int roulette_wheel = 1; //use roulette wheel or not
 	string crossoverType = "UX"; //SPX,PMX,UX...can optimize the branching with these
+	string mutationType = "R"; //R (Scramble), S (Simple Swap) 
 	CrossoverFunc crossoverFunction = selectCrossoverFunction(crossoverType);
 	cout << "Using crossover funciton: " << crossoverType << endl;
-	string filePath = "./tsp/att48.tsp";
+	string filePath = "./tsp/original10.tsp";
 	TSPProblemData data = readTSPFile(filePath);
 	cout << data.name << endl;
 	cout << data.comment << endl;
@@ -108,6 +110,7 @@ int main() {
 	cout << data.dimension << endl;
 	cout << data.edge_weight_type << endl;
 	vector<City> initCities = data.initCities;
+	int mutatationLength = 2;
 
 	if (run == 0) {
 		return 0;
@@ -201,7 +204,12 @@ int main() {
 			for (size_t i = 0; i < children.size(); i++) {
 				float mutateThreshold = genRandom();
 				if (mutateThreshold > (1 - MUTATION_PER)) {
-					mutate(children[i]);
+					if (mutationType == "S") {
+						mutate(children[i]);
+					}
+					else if (mutationType == "R") {
+						scrambleMutate(children[i], mutatationLength);
+					}
 				}
 			}
 		

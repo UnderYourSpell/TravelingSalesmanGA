@@ -16,7 +16,7 @@
 #include <set>
 
 using namespace std;
-const int NUM_CITIES = 48;
+const int NUM_CITIES = 10;
 
 float genRandom() { //generates random number between 0 and 1
 	return ((float)rand()) / RAND_MAX;
@@ -31,6 +31,22 @@ void mutate(Trip& gene) { //swapping two random cities
 	mutatedPath[secondSwapIndex] = temp;
 	gene.setPath(mutatedPath);
 	gene.calcPathLength();
+}
+
+void scrambleMutate(Trip& gene,int mutateLength) {
+	vector<City> path = gene.getPath();
+	int startIndex = rand() % (NUM_CITIES - mutateLength - 1);
+	vector<City> cities;
+	for (int i = startIndex; i < (startIndex + mutateLength); i++) {
+		cities.push_back(path[i]);
+	}
+	random_shuffle(cities.begin(), cities.end());
+	for (int i = startIndex; i < (startIndex + mutateLength); i++) {
+		path[i] = cities[i-startIndex];
+	}
+	gene.setPath(path);
+	gene.calcPathLength();
+
 }
 
 //picks a random index to splice genes, swaps parts, then changes anything that occurs twice
