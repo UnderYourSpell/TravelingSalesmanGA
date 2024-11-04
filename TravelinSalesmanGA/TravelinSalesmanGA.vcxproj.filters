@@ -32,5 +32,8 @@
     <ClInclude Include="Trip.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="crossover.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -13,6 +13,15 @@ public:
 	void setX(float newX);
 	void setY(float newY);
 	void setID(string ID);
+	bool operator<(const City& other) const {
+		return ID < other.ID;
+	}
+	bool operator!=(const City& other) const {
+		return ID != other.ID;
+	}
+	bool operator==(const City& other) const {
+		return ID == other.ID;
+	}
 private:
 	float x;
 	float y;
