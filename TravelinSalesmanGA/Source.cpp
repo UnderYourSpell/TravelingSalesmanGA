@@ -1,28 +1,13 @@
-#include <iostream>
-#include <string>
-#include <vector>
-#include "City.h"
-#include "Trip.h"
-#include <algorithm>
-#include <chrono>
-#include <numeric>
-#include <time.h>
-#include <fstream>
-#include <unordered_set>
-#include <thread>
-#include <functional> // for std::ref
-#include <map>
-#include <set>
 #include "crossover.h"
 
 using namespace std;
 using namespace std::chrono;
 
 //Problem parameters
-const int POP_SIZE = 12;
+const int POP_SIZE = 64;
 const float CROSSOVER_PER = 0.5;
 const float MUTATION_PER = 0.5; //50% mutation rate
-const int ELITISM = 1;
+const int ELITISM = 2;
 const int REST = 10;
 const int MAX_GENERATIONS = 100;
 
@@ -92,16 +77,16 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 	}
 	return nullptr; // Default case or handle error
 }
-
-
+//Note need to change num cities in crossover.h
 int main() {
 	srand(time(NULL));
 	int run = 1;
 	int roulette_wheel = 1; //use roulette wheel or not
-	string crossoverType = "UX"; //SPX,PMX,UX...can optimize the branching with these
+	string crossoverType = "SPX"; //SPX,PMX,UX...can optimize the branching with these
 	string mutationType = "R"; //R (Scramble), S (Simple Swap) 
+	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection)
 	CrossoverFunc crossoverFunction = selectCrossoverFunction(crossoverType);
-	cout << "Using crossover funciton: " << crossoverType << endl;
+	cout << "Using crossover function: " << crossoverType << endl;
 	string filePath = "./tsp/original10.tsp";
 	TSPProblemData data = readTSPFile(filePath);
 	cout << data.name << endl;
@@ -110,7 +95,7 @@ int main() {
 	cout << data.dimension << endl;
 	cout << data.edge_weight_type << endl;
 	vector<City> initCities = data.initCities;
-	int mutatationLength = 2;
+	int mutatationLength = 4;
 
 	if (run == 0) {
 		return 0;
@@ -137,68 +122,27 @@ int main() {
 			newTrip.calcPathLength();
 			genePool.push_back(newTrip);
 		}
-	/*
-	for (auto& gene : genePool) {
-		gene.printPath();
-		gene.printPathLength();
-		cout << endl;
-	}
-	*/
+
+
 		vector<Trip> newGen;
 		for (int p = 0; p <= MAX_GENERATIONS; p++) {
-		
-			//setting up for the roulette wheel, need a total sum of inverted path's (inverted because we are minimizing not maximizing)
-			float totalSumOfInvertedPaths = 0;
-			for (auto& gene : genePool) {
-				gene.calcInvertedProb(); //calculates the inverted path size for that path size
-				totalSumOfInvertedPaths += gene.getInvertedPathLength();
-			}
 
-			//setting roulette prob - in other words, the inverted path length normalized to the sum of all the inverted paths
-			for (auto& gene : genePool) {
-				float rouletteProb = gene.getInvertedPathLength() / totalSumOfInvertedPaths;
-				gene.setRouletteProb(rouletteProb);
-			}
-
-			//calculating the cumulative sum for each path in the gene pool
-			float totalSum = 0;
-			for (auto& gene : genePool) {
-				totalSum += gene.getRouletteProb();
-				gene.setCumProb(totalSum);
-			}
-
-			//creating a parents list
+			//roulette wheel probability
 			vector<Trip> parents;
-			for (int i = 0; i < int(CROSSOVER_PER * POP_SIZE); i++){ //iterating based on crossover per
-				float rouletteRand = genRandom();
-				for (auto& gene : genePool) {
-					if (rouletteRand > gene.getCumProb()) { //if the random number is greater than that gene's cumulative prob, set to 1
-						gene.setBoolProb(1);
-					}
-				}
-				Trip* previousGene = nullptr;
-				for (auto& gene : genePool) {
-					if (gene.getBoolProb() == 0) { //finding last gene in cumulative prob less than random number
-						if (previousGene != nullptr) {
-							parents.push_back(*previousGene); //adding that gene to parents
-							break;
-						}
-					}
-					previousGene = &gene;
-				}
-				for (auto& gene : genePool) {
-					gene.setBoolProb(0); //re setting back to 0
-				}
+			if (selectionType == "RWS") {
+				RWS(genePool, parents, POP_SIZE,CROSSOVER_PER);
+			}
+			else if(selectionType == "SUS") {
+				SUSSelection(genePool, parents, POP_SIZE);
+			}
+			else if (selectionType == "newRWS") {
+				newRWSSelection(genePool, parents, POP_SIZE);
 			}
 
-			//__ __ __ two per, iterating
 			vector<Trip> children;
-			//change this so we dont check every time
-			
 			for(size_t i = 0;i+1<parents.size();i+=2){
 				crossoverFunction(parents[i], parents[i + 1],children);
 			}
-			
 			
 			//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
 			for (size_t i = 0; i < children.size(); i++) {
@@ -240,16 +184,23 @@ int main() {
 		genePool[0].printPathLength();
 		cout << endl;
 
-		/*
-		cout << "Final Generation" << endl;
-		for (auto& gene : genePool) {
-			cout << gene.getPathLength() << endl;
-		}
-		*/
 		auto stop = high_resolution_clock::now();
 		auto duration = duration_cast<seconds>(stop - start);
 		cout << endl << "Time taken by function: "
 			<< duration.count() << " Seconds" << endl;
 		return 0;
 	}
+		/*
+	for (auto& gene : genePool) {
+		gene.printPath();
+		gene.printPathLength();
+		cout << endl;
+	}
+	cout << "Gene Pool" << endl;
+	for (auto& gene : genePool) {
+		gene.printPath();
+		gene.printPathLength();
+		cout << endl;
+	}
+	*/
 }

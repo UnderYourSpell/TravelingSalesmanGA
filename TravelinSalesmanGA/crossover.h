@@ -49,6 +49,101 @@ void scrambleMutate(Trip& gene,int mutateLength) {
 
 }
 
+//Stochastic Universal Sampling
+void SUSSelection(vector<Trip>& genePool, vector<Trip>& parents,int popSize) {
+	int n = genePool.size();
+	double factor = static_cast<double>(1) / n;
+	float fHat = 0;
+	float a = genRandom();
+	
+	for (auto& gene : genePool) {
+		fHat += gene.getPathLength();
+	}
+
+	float mean = factor * fHat;
+	float delta = mean * a;
+	int j = 0;
+	float sum = genePool[j].getPathLength();
+
+	do {
+		if (delta < sum) {
+			parents.push_back(genePool[j]);
+			delta = delta + sum;
+		}
+		else {
+			sum = sum + genePool[j].getPathLength();
+			j++;
+		}
+	} while (j < n);
+}
+
+void newRWSSelection(vector<Trip>& genePool, vector<Trip>& parents, int popSize) {
+	int n = genePool.size();
+	float S = 0;
+
+	for (auto& gene : genePool) {
+		S += 1.0f / gene.getPathLength();
+	}
+	cout << "S:" << S;
+	for (int i = 0; i < popSize; i++) {
+		float a = static_cast<float>(rand()) / RAND_MAX * S;
+		float iSum = 0;
+		int j = 0;
+		do{
+			iSum = iSum + (1.0f / genePool[j].getPathLength());
+			j++;
+		} while (iSum < a && j < n-1);
+		parents.push_back(genePool[j]);
+	}
+}
+
+void RWS(vector<Trip>& genePool, vector<Trip>& parents, int popSize,float crossoverPer) {
+	//setting up for the roulette wheel, need a total sum of inverted path's (inverted because we are minimizing not maximizing)
+	float totalSumOfInvertedPaths = 0;
+	for (auto& gene : genePool) {
+		gene.calcInvertedProb(); //calculates the inverted path size for that path size
+		totalSumOfInvertedPaths += gene.getInvertedPathLength();
+	}
+
+	//setting roulette prob - in other words, the inverted path length normalized to the sum of all the inverted paths
+	for (auto& gene : genePool) {
+		float rouletteProb = gene.getInvertedPathLength() / totalSumOfInvertedPaths;
+		gene.setRouletteProb(rouletteProb);
+	}
+
+	//calculating the cumulative sum for each path in the gene pool
+	float totalSum = 0;
+	for (auto& gene : genePool) {
+		totalSum += gene.getRouletteProb();
+		gene.setCumProb(totalSum);
+	}
+
+	//creating a parents list
+	for (int i = 0; i < int(crossoverPer * popSize); i++) { //iterating based on crossover per
+		float rouletteRand = genRandom();
+		for (auto& gene : genePool) {
+			if (rouletteRand > gene.getCumProb()) { //if the random number is greater than that gene's cumulative prob, set to 1
+				gene.setBoolProb(1);
+			}
+		}
+		Trip* previousGene = nullptr;
+		for (auto& gene : genePool) {
+			if (gene.getBoolProb() == 0) { //finding last gene in cumulative prob less than random number
+				if (previousGene != nullptr) {
+					parents.push_back(*previousGene); //adding that gene to parents
+					break;
+				}
+			}
+			previousGene = &gene;
+		}
+		for (auto& gene : genePool) {
+			gene.setBoolProb(0); //re setting back to 0
+		}
+	}
+}
+
+
+
 //picks a random index to splice genes, swaps parts, then changes anything that occurs twice
 void spCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
 	int cut = rand() % (NUM_CITIES - 1); //random placement 1-9 in this case
@@ -121,6 +216,9 @@ void uniformCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
 	children.push_back(child1Trip);
 	children.push_back(child2Trip);
 }
+
+
+
 
 void partiallyMappedCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) { //work in progress
 	int left = rand() % (NUM_CITIES - 3) + 1;
