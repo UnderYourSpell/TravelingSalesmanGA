@@ -9,6 +9,7 @@ Trip::Trip()
 	cumProb = 0;
 	rouletteProb = 0;
 	boolProb = 0;
+	lrsProb = 0;
 }
 
 Trip::Trip(vector<City> path): path(path)
@@ -18,6 +19,7 @@ Trip::Trip(vector<City> path): path(path)
 	cumProb = 0;
 	rouletteProb = 0;
 	boolProb = 0;
+	lrsProb = 0;
 }
 
 float Trip::getDistance(City city1, City city2)

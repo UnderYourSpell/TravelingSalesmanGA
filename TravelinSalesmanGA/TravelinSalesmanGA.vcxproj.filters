@@ -24,6 +24,9 @@
     <ClCompile Include="Trip.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="NearestNeighbor.h">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="City.h">

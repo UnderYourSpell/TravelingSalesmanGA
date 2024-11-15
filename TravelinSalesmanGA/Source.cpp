@@ -4,18 +4,12 @@ using namespace std;
 using namespace std::chrono;
 
 //Problem parameters
-const int POP_SIZE = 64;
+const int POP_SIZE = 32;
 const float CROSSOVER_PER = 0.5;
 const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 2;
 const int REST = 10;
-const int MAX_GENERATIONS = 100;
-
-
-bool comparePaths(Trip i1, Trip i2) {
-	return(i1.getPathLength() < i2.getPathLength());
-}
-
+const int MAX_GENERATIONS = 500;
 
 struct TSPProblemData {
 	string name;
@@ -80,11 +74,11 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 //Note need to change num cities in crossover.h
 int main() {
 	srand(time(NULL));
-	int run = 1;
+	int run = 0;
 	int roulette_wheel = 1; //use roulette wheel or not
 	string crossoverType = "SPX"; //SPX,PMX,UX...can optimize the branching with these
-	string mutationType = "R"; //R (Scramble), S (Simple Swap) 
-	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection)
+	string mutationType = "S"; //R (Scramble), S (Simple Swap) 
+	string selectionType = "LRS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection)
 	CrossoverFunc crossoverFunction = selectCrossoverFunction(crossoverType);
 	cout << "Using crossover function: " << crossoverType << endl;
 	string filePath = "./tsp/original10.tsp";
@@ -98,10 +92,16 @@ int main() {
 	int mutatationLength = 4;
 
 	if (run == 0) {
+		Trip NNTrip = NearestNeighbor(initCities, NUM_CITIES);
+		NNTrip.printPath();
+		NNTrip.printPathLength();
 		return 0;
 	}
 	else {
 		auto start = high_resolution_clock::now();
+
+		//Add nearest Neighbor clause - need to write nearest neighbor
+
 		vector<Trip> genePool;
 		int picks[NUM_CITIES] = {};
 		for (int i = 0; i < NUM_CITIES; i++) picks[i] = i; //populating picks
@@ -123,10 +123,15 @@ int main() {
 			genePool.push_back(newTrip);
 		}
 
+		cout << "Genes: " << endl;
+		for (auto& gene : genePool) {
+			gene.printPath();
+			gene.printPathLength();
+			cout << endl;
+		}
 
 		vector<Trip> newGen;
 		for (int p = 0; p <= MAX_GENERATIONS; p++) {
-
 			//roulette wheel probability
 			vector<Trip> parents;
 			if (selectionType == "RWS") {
@@ -138,6 +143,9 @@ int main() {
 			else if (selectionType == "newRWS") {
 				newRWSSelection(genePool, parents, POP_SIZE);
 			}
+			else if (selectionType == "LRS") {
+				linearRankSelection(genePool, parents, 2);
+			}
 
 			vector<Trip> children;
 			for(size_t i = 0;i+1<parents.size();i+=2){
@@ -145,6 +153,7 @@ int main() {
 			}
 			
 			//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
+			//I could try and parralalize this
 			for (size_t i = 0; i < children.size(); i++) {
 				float mutateThreshold = genRandom();
 				if (mutateThreshold > (1 - MUTATION_PER)) {
@@ -156,7 +165,8 @@ int main() {
 					}
 				}
 			}
-		
+
+
 			//now we add the children to the current population - sort - then move on
 			//1. Grab top 2 from original gene pool
 			//2. Put all parents and children in the same vector - add children to parent vector
