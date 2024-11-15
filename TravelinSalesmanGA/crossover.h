@@ -16,7 +16,7 @@
 #include <set>
 
 using namespace std;
-const int NUM_CITIES = 10;
+const int NUM_CITIES = 1002;
 
 bool comparePaths(Trip i1, Trip i2) {
 	return(i1.getPathLength() < i2.getPathLength());
@@ -259,6 +259,7 @@ void uniformCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
 
 float getDistance(City city1, City city2);
 
+//creates a Trip based on the greedy nearest neighbors
 Trip NearestNeighbor(vector<City> initCities, int numCities) {
 	Trip newTrip;
 	vector<City> U;

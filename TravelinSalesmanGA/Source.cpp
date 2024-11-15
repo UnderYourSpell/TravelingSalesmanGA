@@ -9,7 +9,7 @@ const float CROSSOVER_PER = 0.5;
 const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 2;
 const int REST = 10;
-const int MAX_GENERATIONS = 500;
+const int MAX_GENERATIONS = 100;
 
 struct TSPProblemData {
 	string name;
@@ -74,14 +74,15 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 //Note need to change num cities in crossover.h
 int main() {
 	srand(time(NULL));
-	int run = 0;
+	int run = 1;
+	int nn = 1;
 	int roulette_wheel = 1; //use roulette wheel or not
 	string crossoverType = "SPX"; //SPX,PMX,UX...can optimize the branching with these
-	string mutationType = "S"; //R (Scramble), S (Simple Swap) 
+	string mutationType = "R"; //R (Scramble), S (Simple Swap) 
 	string selectionType = "LRS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection)
 	CrossoverFunc crossoverFunction = selectCrossoverFunction(crossoverType);
 	cout << "Using crossover function: " << crossoverType << endl;
-	string filePath = "./tsp/original10.tsp";
+	string filePath = "./tsp/pr1002.tsp";
 	TSPProblemData data = readTSPFile(filePath);
 	cout << data.name << endl;
 	cout << data.comment << endl;
@@ -89,7 +90,7 @@ int main() {
 	cout << data.dimension << endl;
 	cout << data.edge_weight_type << endl;
 	vector<City> initCities = data.initCities;
-	int mutatationLength = 4;
+	int mutationLength  = 200;
 
 	if (run == 0) {
 		Trip NNTrip = NearestNeighbor(initCities, NUM_CITIES);
@@ -101,37 +102,54 @@ int main() {
 		auto start = high_resolution_clock::now();
 
 		//Add nearest Neighbor clause - need to write nearest neighbor
-
 		vector<Trip> genePool;
-		int picks[NUM_CITIES] = {};
-		for (int i = 0; i < NUM_CITIES; i++) picks[i] = i; //populating picks
-
-		for (int i = 0; i < POP_SIZE; i++) {
-			Trip newTrip;
-			int newPicks[NUM_CITIES];
-			copy(begin(picks), end(picks), begin(newPicks));
-			int n = static_cast<int>(sizeof(newPicks) / sizeof(*newPicks));
-			//my way of populating random genes O(n)
-			for (int i = 0; i < NUM_CITIES; i++) {
-				int randIndex = rand() % n;
-				int numToAdd = newPicks[randIndex];
-				newPicks[randIndex] = newPicks[n - 1];
-				n--;
-				newTrip.addCity(initCities[numToAdd]);
+		if (nn == 1) {
+			auto startNN = high_resolution_clock::now();
+			Trip NNTrip = NearestNeighbor(initCities, NUM_CITIES);
+			auto stopNN = high_resolution_clock::now();
+			auto durationNN = duration_cast<microseconds>(stopNN - startNN);
+			cout << endl << "Time taken by function: "
+				<< durationNN.count() << " microseconds" << endl;
+			cout << "Original Nearest Neighbors" << endl;
+			NNTrip.printPath();
+			NNTrip.printPathLength();
+			for (int i = 0; i < POP_SIZE; i++) {
+				genePool.push_back(NNTrip);
 			}
-			newTrip.calcPathLength();
-			genePool.push_back(newTrip);
 		}
+		else {
+			int picks[NUM_CITIES] = {};
+			for (int i = 0; i < NUM_CITIES; i++) picks[i] = i; //populating picks
 
+			for (int i = 0; i < POP_SIZE; i++) {
+				Trip newTrip;
+				int newPicks[NUM_CITIES];
+				copy(begin(picks), end(picks), begin(newPicks));
+				int n = static_cast<int>(sizeof(newPicks) / sizeof(*newPicks));
+				//my way of populating random genes O(n)
+				for (int i = 0; i < NUM_CITIES; i++) {
+					int randIndex = rand() % n;
+					int numToAdd = newPicks[randIndex];
+					newPicks[randIndex] = newPicks[n - 1];
+					n--;
+					newTrip.addCity(initCities[numToAdd]);
+				}
+				newTrip.calcPathLength();
+				genePool.push_back(newTrip);
+			}
+		}
+		/*
 		cout << "Genes: " << endl;
 		for (auto& gene : genePool) {
 			gene.printPath();
 			gene.printPathLength();
 			cout << endl;
 		}
-
+		*/
+		int mutations = 0;
 		vector<Trip> newGen;
 		for (int p = 0; p <= MAX_GENERATIONS; p++) {
+			
 			//roulette wheel probability
 			vector<Trip> parents;
 			if (selectionType == "RWS") {
@@ -157,11 +175,12 @@ int main() {
 			for (size_t i = 0; i < children.size(); i++) {
 				float mutateThreshold = genRandom();
 				if (mutateThreshold > (1 - MUTATION_PER)) {
+					mutations++;
 					if (mutationType == "S") {
 						mutate(children[i]);
 					}
 					else if (mutationType == "R") {
-						scrambleMutate(children[i], mutatationLength);
+						scrambleMutate(children[i], mutationLength);
 					}
 				}
 			}
@@ -193,7 +212,7 @@ int main() {
 		genePool[0].printPath();
 		genePool[0].printPathLength();
 		cout << endl;
-
+		cout << "Num mutations: " << mutations << endl;
 		auto stop = high_resolution_clock::now();
 		auto duration = duration_cast<seconds>(stop - start);
 		cout << endl << "Time taken by function: "
