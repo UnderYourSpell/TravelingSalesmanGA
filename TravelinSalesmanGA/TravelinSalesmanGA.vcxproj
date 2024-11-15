@@ -129,6 +129,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="City.cpp" />
+    <ClCompile Include="NearestNeighbor.h" />
     <ClCompile Include="Source.cpp" />
     <ClCompile Include="Trip.cpp" />
   </ItemGroup>

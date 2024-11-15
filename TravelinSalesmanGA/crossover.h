@@ -1,4 +1,4 @@
-#pragma once
+  #pragma once
 #include <iostream>
 #include <string>
 #include <vector>
@@ -16,10 +16,18 @@
 #include <set>
 
 using namespace std;
-const int NUM_CITIES = 10;
+const int NUM_CITIES = 1002;
+
+bool comparePaths(Trip i1, Trip i2) {
+	return(i1.getPathLength() < i2.getPathLength());
+}
 
 float genRandom() { //generates random number between 0 and 1
 	return ((float)rand()) / RAND_MAX;
+}
+
+double genRandomDouble() { //generates random number between 0 and 1
+	return ((double)rand()) / RAND_MAX;
 }
 
 void mutate(Trip& gene) { //swapping two random cities
@@ -77,6 +85,37 @@ void SUSSelection(vector<Trip>& genePool, vector<Trip>& parents,int popSize) {
 	} while (j < n);
 }
 
+	//Rank based not fitness based.  Same same but different
+void linearRankSelection(vector<Trip>& genePool, vector<Trip>& parents,int selectionPressure) {
+	double sp = double(selectionPressure);
+	double n = static_cast<double>(genePool.size());
+	sort(genePool.begin(), genePool.end(), comparePaths); //Rank selection, so we rank them.
+	
+	double firstFactor  = 1 / n;
+	double secondFactor = 2 * sp - 2;
+
+	double p = firstFactor * sp;
+	genePool[0].setLRSProb(p);
+	for (int i = 1; i < n; i++) {
+		double p = firstFactor * (sp - secondFactor * (((i + 1) - 1.0f) / (n - 1))) + genePool[i-1].getLRSProb();
+		genePool[i].setLRSProb(p);
+	}
+
+	for (int i = 0; i < n/2; i++) {
+		double a = genRandomDouble();
+		Trip* previousGene = nullptr;
+		for (auto& gene : genePool) {
+			if (gene.getLRSProb() >= a) {
+				if (previousGene != nullptr) {
+					parents.push_back(*previousGene); //adding that gene to parents
+					break;
+				}
+			}
+			previousGene = &gene;
+		}
+	}
+}
+
 void newRWSSelection(vector<Trip>& genePool, vector<Trip>& parents, int popSize) {
 	int n = genePool.size();
 	float S = 0;
@@ -95,6 +134,7 @@ void newRWSSelection(vector<Trip>& genePool, vector<Trip>& parents, int popSize)
 		} while (iSum < a && j < n-1);
 		parents.push_back(genePool[j]);
 	}
+
 }
 
 void RWS(vector<Trip>& genePool, vector<Trip>& parents, int popSize,float crossoverPer) {
@@ -217,7 +257,69 @@ void uniformCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
 	children.push_back(child2Trip);
 }
 
+float getDistance(City city1, City city2);
 
+//creates a Trip based on the greedy nearest neighbors
+Trip NearestNeighbor(vector<City> initCities, int numCities) {
+	Trip newTrip;
+	vector<City> U;
+	vector<City> V;
+
+	int picks[NUM_CITIES] = {};
+	for (int i = 0; i < NUM_CITIES; i++) picks[i] = i; //populating picks
+	int newPicks[NUM_CITIES];
+
+	copy(begin(picks), end(picks), begin(newPicks));
+	int n = static_cast<int>(sizeof(newPicks) / sizeof(*newPicks));
+	//my way of populating random genes O(n)
+
+	for (int i = 0; i < numCities; i++) {
+		int randIndex = rand() % n;
+		int numToAdd = newPicks[randIndex];
+		newPicks[randIndex] = newPicks[n - 1];
+		n--;
+		V.push_back(initCities[numToAdd]);
+	}
+
+	U.push_back(V[0]);
+	V.erase(V.begin());
+	
+	do {
+		float dist = 999999999999999;
+		City closestCity;
+		int deleteIndex = 0;
+		for (int i = 0; i < V.size(); i++) { //this could be wrong 
+			//find min distance from U[0] to whatever city in v
+			float curDist = getDistance(U.back(), V[i]);
+			if (curDist < dist) {
+				closestCity = V[i];
+				dist = curDist;
+				deleteIndex = i;
+			}
+		}
+		U.push_back(closestCity);
+		V.erase(V.begin() + deleteIndex);
+	} while (U.size() < numCities);
+	//need to erase closest city from V
+
+	for (auto& city : U) {
+		newTrip.addCity(city);
+	}
+	newTrip.calcPathLength();
+	return newTrip;
+	//newTrip Created
+
+}
+
+float getDistance(City city1, City city2)
+{
+	float x1 = city1.getX();
+	float y1 = city1.getY();
+	float x2 = city2.getX();
+	float y2 = city2.getY();
+	float distance = abs(sqrt(pow((x2 - x1), 2) + pow((y2 - y1), 2)));
+	return distance;
+}
 
 
 void partiallyMappedCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) { //work in progress
