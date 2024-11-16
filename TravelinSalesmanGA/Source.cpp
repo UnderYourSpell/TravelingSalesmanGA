@@ -4,12 +4,12 @@ using namespace std;
 using namespace std::chrono;
 
 //Problem parameters
-const int POP_SIZE = 32;
+const int POP_SIZE = 16;
 const float CROSSOVER_PER = 0.5;
 const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 2;
 const int REST = 10;
-const int MAX_GENERATIONS = 100;
+const int MAX_GENERATIONS = 500;
 
 struct TSPProblemData {
 	string name;
@@ -78,11 +78,11 @@ int main() {
 	int nn = 1;
 	int roulette_wheel = 1; //use roulette wheel or not
 	string crossoverType = "SPX"; //SPX,PMX,UX...can optimize the branching with these
-	string mutationType = "R"; //R (Scramble), S (Simple Swap) 
+	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
 	string selectionType = "LRS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection)
 	CrossoverFunc crossoverFunction = selectCrossoverFunction(crossoverType);
 	cout << "Using crossover function: " << crossoverType << endl;
-	string filePath = "./tsp/pr1002.tsp";
+	string filePath = "./tsp/original10.tsp";
 	TSPProblemData data = readTSPFile(filePath);
 	cout << data.name << endl;
 	cout << data.comment << endl;
@@ -90,7 +90,8 @@ int main() {
 	cout << data.dimension << endl;
 	cout << data.edge_weight_type << endl;
 	vector<City> initCities = data.initCities;
-	int mutationLength  = 200;
+	int mutationLength  = 4;
+	int numSwaps = 3;
 
 	if (run == 0) {
 		Trip NNTrip = NearestNeighbor(initCities, NUM_CITIES);
@@ -103,12 +104,13 @@ int main() {
 
 		//Add nearest Neighbor clause - need to write nearest neighbor
 		vector<Trip> genePool;
+		//nn == 1 means we are using nearest neighbor
 		if (nn == 1) {
 			auto startNN = high_resolution_clock::now();
 			Trip NNTrip = NearestNeighbor(initCities, NUM_CITIES);
 			auto stopNN = high_resolution_clock::now();
 			auto durationNN = duration_cast<microseconds>(stopNN - startNN);
-			cout << endl << "Time taken by function: "
+			cout << endl << "Time taken by Nearest Neighbor function: "
 				<< durationNN.count() << " microseconds" << endl;
 			cout << "Original Nearest Neighbors" << endl;
 			NNTrip.printPath();
@@ -149,7 +151,12 @@ int main() {
 		int mutations = 0;
 		vector<Trip> newGen;
 		for (int p = 0; p <= MAX_GENERATIONS; p++) {
-			
+			cout << "Genes: " << endl;
+			for (auto& gene : genePool) {
+				gene.printPath();
+				gene.printPathLength();
+				cout << endl;
+			}
 			//roulette wheel probability
 			vector<Trip> parents;
 			if (selectionType == "RWS") {
@@ -181,6 +188,9 @@ int main() {
 					}
 					else if (mutationType == "R") {
 						scrambleMutate(children[i], mutationLength);
+					}
+					else if (mutationType == "M") {
+						moroMutate(children[i], numSwaps);
 					}
 				}
 			}
