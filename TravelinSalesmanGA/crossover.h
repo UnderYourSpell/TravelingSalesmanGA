@@ -1,4 +1,4 @@
-  #pragma once
+#pragma once
 #include <iostream>
 #include <string>
 #include <vector>
@@ -16,7 +16,7 @@
 #include <set>
 
 using namespace std;
-const int NUM_CITIES = 1002;
+const int NUM_CITIES = 10;
 
 bool comparePaths(Trip i1, Trip i2) {
 	return(i1.getPathLength() < i2.getPathLength());
@@ -30,7 +30,8 @@ double genRandomDouble() { //generates random number between 0 and 1
 	return ((double)rand()) / RAND_MAX;
 }
 
-void mutate(Trip& gene) { //swapping two random cities
+//swapping two random cities
+void mutate(Trip& gene) { 
 	int firstSwapIndex = rand() % (NUM_CITIES - 1);
 	int secondSwapIndex = rand() % (NUM_CITIES - 1);
 	vector<City> mutatedPath = gene.getPath();
@@ -41,6 +42,7 @@ void mutate(Trip& gene) { //swapping two random cities
 	gene.calcPathLength();
 }
 
+//Takes a length, randomizes a selection in the path of that length, scrambles them, then puts them back in the path
 void scrambleMutate(Trip& gene,int mutateLength) {
 	vector<City> path = gene.getPath();
 	int startIndex = rand() % (NUM_CITIES - mutateLength - 1);
@@ -55,6 +57,24 @@ void scrambleMutate(Trip& gene,int mutateLength) {
 	gene.setPath(path);
 	gene.calcPathLength();
 
+}
+
+/*
+Moro mutate works by doing several swaps of cities in a path
+These swaps occur at random points, but it involves only swapping two cities 
+that are next to each other.  So if we choose index 8, cities 8 and 9 are swapped.
+If its 0, cities 0 and 1 are swapped. We do this numSwaps times.
+*/
+void moroMutate(Trip& gene, int numSwaps) {
+	vector<City> path = gene.getPath();
+	for (int i = 0; i < numSwaps; i++) {
+		int startSwap = rand() % (NUM_CITIES - 1);
+		City temp = path[startSwap];
+		path[startSwap] = path[startSwap + 1];
+		path[startSwap + 1] = temp;
+	}
+	gene.setPath(path);
+	gene.calcPathLength();
 }
 
 //Stochastic Universal Sampling
@@ -85,15 +105,28 @@ void SUSSelection(vector<Trip>& genePool, vector<Trip>& parents,int popSize) {
 	} while (j < n);
 }
 
-	//Rank based not fitness based.  Same same but different
+void exponentialRankSelection(vector<Trip>& genePool, vector<Trip>& parents, int selectionPressure) {
+	double n = static_cast<double>(genePool.size());
+	double c = (n * 2 * (n - 1)) / (6 * (n - 1) + n);
+	for (int i = 0; i < n; i++) {
+		double p = 1.0f * exp((-i) / c);
+		genePool[i].setERSProb(p);
+	}
+
+	//not sure about this one
+}
+
+//Rank based selection
 void linearRankSelection(vector<Trip>& genePool, vector<Trip>& parents,int selectionPressure) {
 	double sp = double(selectionPressure);
 	double n = static_cast<double>(genePool.size());
-	sort(genePool.begin(), genePool.end(), comparePaths); //Rank selection, so we rank them.
+	//sort(genePool.begin(), genePool.end(), comparePaths); //Rank selection, so we rank them. SHould arleady be sorted when we pass it
 	
 	double firstFactor  = 1 / n;
 	double secondFactor = 2 * sp - 2;
 
+	//Mind you, we are creating a cumulative probability, so the random number will correspond to a range
+	//https://en.wikipedia.org/wiki/Selection_(genetic_algorithm) equation for LRS
 	double p = firstFactor * sp;
 	genePool[0].setLRSProb(p);
 	for (int i = 1; i < n; i++) {
@@ -101,6 +134,7 @@ void linearRankSelection(vector<Trip>& genePool, vector<Trip>& parents,int selec
 		genePool[i].setLRSProb(p);
 	}
 
+	//Ugly
 	for (int i = 0; i < n/2; i++) {
 		double a = genRandomDouble();
 		Trip* previousGene = nullptr;
@@ -116,6 +150,7 @@ void linearRankSelection(vector<Trip>& genePool, vector<Trip>& parents,int selec
 	}
 }
 
+//This maybe doesn't work
 void newRWSSelection(vector<Trip>& genePool, vector<Trip>& parents, int popSize) {
 	int n = genePool.size();
 	float S = 0;
@@ -181,7 +216,6 @@ void RWS(vector<Trip>& genePool, vector<Trip>& parents, int popSize,float crosso
 		}
 	}
 }
-
 
 
 //picks a random index to splice genes, swaps parts, then changes anything that occurs twice
@@ -271,8 +305,8 @@ Trip NearestNeighbor(vector<City> initCities, int numCities) {
 
 	copy(begin(picks), end(picks), begin(newPicks));
 	int n = static_cast<int>(sizeof(newPicks) / sizeof(*newPicks));
-	//my way of populating random genes O(n)
 
+	//create a new random path
 	for (int i = 0; i < numCities; i++) {
 		int randIndex = rand() % n;
 		int numToAdd = newPicks[randIndex];
@@ -281,9 +315,11 @@ Trip NearestNeighbor(vector<City> initCities, int numCities) {
 		V.push_back(initCities[numToAdd]);
 	}
 
+	//Using U and V, U is the nearest neighbor path, V is the original path
 	U.push_back(V[0]);
 	V.erase(V.begin());
 	
+	//While U has less than the number of cities, add the nearest city to the last city added to V
 	do {
 		float dist = 999999999999999;
 		City closestCity;
@@ -300,8 +336,8 @@ Trip NearestNeighbor(vector<City> initCities, int numCities) {
 		U.push_back(closestCity);
 		V.erase(V.begin() + deleteIndex);
 	} while (U.size() < numCities);
-	//need to erase closest city from V
-
+	
+	//Create a trip object to return
 	for (auto& city : U) {
 		newTrip.addCity(city);
 	}

@@ -39,6 +39,12 @@ public:
 	double getLRSProb() {
 		return lrsProb;
 	}
+	void setERSProb(double newERS) {
+		ersProb = newERS;
+	}
+	double getERSProb() {
+		return ersProb;
+	}
 private:
 	vector<City> path;
 	float pathSize;
@@ -47,5 +53,6 @@ private:
 	float rouletteProb;
 	int boolProb;
 	double lrsProb;
+	double ersProb;
 };
 
