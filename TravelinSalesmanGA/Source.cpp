@@ -58,7 +58,7 @@ TSPProblemData readTSPFile(const string& filepath) {
 }
 
 //globally setting the crossover function before we start, saves time on branching in the simulation
-using CrossoverFunc = void(*)(Trip&, Trip&, std::vector<Trip>&);
+using CrossoverFunc = void(*)(Trip&, Trip&, std::vector<Trip>&,int);
 CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 	if (crossoverType == "UX") {
 		return uniformCrossover;
@@ -75,7 +75,7 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 int main() {
 	srand(time(NULL));
 	int run = 1;
-	int nn = 0;
+	int nn = 1;
 	int roulette_wheel = 1; //use roulette wheel or not
 	string crossoverType = "SPX"; //SPX,PMX,UX...can optimize the branching with these
 	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
@@ -88,13 +88,15 @@ int main() {
 	cout << data.comment << endl;
 	cout << data.type << endl;
 	cout << data.dimension << endl;
+	int numCities = data.dimension;
+	cout << numCities << endl;
 	cout << data.edge_weight_type << endl;
 	vector<City> initCities = data.initCities;
 	int mutationLength  = 4;
 	int numSwaps = 3;
 
 	if (run == 0) {
-		Trip NNTrip = NearestNeighbor(initCities, NUM_CITIES);
+		Trip NNTrip = NearestNeighbor(initCities, numCities);
 		NNTrip.printPath();
 		NNTrip.printPathLength();
 		return 0;
@@ -107,7 +109,7 @@ int main() {
 		//nn == 1 means we are using nearest neighbor
 		if (nn == 1) {
 			auto startNN = high_resolution_clock::now();
-			Trip NNTrip = NearestNeighbor(initCities, NUM_CITIES);
+			Trip NNTrip = NearestNeighbor(initCities, numCities);
 			auto stopNN = high_resolution_clock::now();
 			auto durationNN = duration_cast<microseconds>(stopNN - startNN);
 			cout << endl << "Time taken by Nearest Neighbor function: "
@@ -120,16 +122,18 @@ int main() {
 			}
 		}
 		else {
-			int picks[NUM_CITIES] = {};
-			for (int i = 0; i < NUM_CITIES; i++) picks[i] = i; //populating picks
+			int picks[] = { 0 };
+			for (int i = 0; i < numCities; i++) picks[i] = i; //populating picks
 
 			for (int i = 0; i < POP_SIZE; i++) {
 				Trip newTrip;
-				int newPicks[NUM_CITIES];
-				copy(begin(picks), end(picks), begin(newPicks));
-				int n = static_cast<int>(sizeof(newPicks) / sizeof(*newPicks));
-				//my way of populating random genes O(n)
-				for (int i = 0; i < NUM_CITIES; i++) {
+				vector<int> picks;
+				for (int i = 0; i < numCities; i++) { picks.push_back(i); };
+				vector<int> newPicks;
+				newPicks.insert(newPicks.begin(), picks.begin(), picks.end());
+				int n = numCities;
+
+				for (int i = 0; i < numCities; i++) {
 					int randIndex = rand() % n;
 					int numToAdd = newPicks[randIndex];
 					newPicks[randIndex] = newPicks[n - 1];
@@ -148,7 +152,7 @@ int main() {
 			cout << endl;
 		}
 		*/
-		int mutations = 0;
+		int mutations = 0;//tracking mutations
 		vector<Trip> newGen;
 		for (int p = 0; p <= MAX_GENERATIONS; p++) {
 			//roulette wheel probability
@@ -168,7 +172,7 @@ int main() {
 
 			vector<Trip> children;
 			for(size_t i = 0;i+1<parents.size();i+=2){
-				crossoverFunction(parents[i], parents[i + 1],children);
+				crossoverFunction(parents[i], parents[i + 1],children,numCities);
 			}
 			
 			//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
@@ -178,13 +182,13 @@ int main() {
 				if (mutateThreshold > (1 - MUTATION_PER)) {
 					mutations++;
 					if (mutationType == "S") {
-						mutate(children[i]);
+						mutate(children[i], numCities);
 					}
 					else if (mutationType == "R") {
-						scrambleMutate(children[i], mutationLength);
+						scrambleMutate(children[i], mutationLength, numCities);
 					}
 					else if (mutationType == "M") {
-						moroMutate(children[i], numSwaps);
+						moroMutate(children[i], numSwaps, numCities);
 					}
 				}
 			}

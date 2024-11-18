@@ -16,7 +16,6 @@
 #include <set>
 
 using namespace std;
-const int NUM_CITIES = 10;
 
 bool comparePaths(Trip i1, Trip i2) {
 	return(i1.getPathLength() < i2.getPathLength());
@@ -31,9 +30,9 @@ double genRandomDouble() { //generates random number between 0 and 1
 }
 
 //swapping two random cities
-void mutate(Trip& gene) { 
-	int firstSwapIndex = rand() % (NUM_CITIES - 1);
-	int secondSwapIndex = rand() % (NUM_CITIES - 1);
+void mutate(Trip& gene,int numCities) { 
+	int firstSwapIndex = rand() % (numCities- 1);
+	int secondSwapIndex = rand() % (numCities - 1);
 	vector<City> mutatedPath = gene.getPath();
 	City temp = mutatedPath[firstSwapIndex];
 	mutatedPath[firstSwapIndex] = mutatedPath[secondSwapIndex];
@@ -43,9 +42,9 @@ void mutate(Trip& gene) {
 }
 
 //Takes a length, randomizes a selection in the path of that length, scrambles them, then puts them back in the path
-void scrambleMutate(Trip& gene,int mutateLength) {
+void scrambleMutate(Trip& gene,int mutateLength, int numCities) {
 	vector<City> path = gene.getPath();
-	int startIndex = rand() % (NUM_CITIES - mutateLength - 1);
+	int startIndex = rand() % (numCities - mutateLength - 1);
 	vector<City> cities;
 	for (int i = startIndex; i < (startIndex + mutateLength); i++) {
 		cities.push_back(path[i]);
@@ -65,10 +64,10 @@ These swaps occur at random points, but it involves only swapping two cities
 that are next to each other.  So if we choose index 8, cities 8 and 9 are swapped.
 If its 0, cities 0 and 1 are swapped. We do this numSwaps times.
 */
-void moroMutate(Trip& gene, int numSwaps) {
+void moroMutate(Trip& gene, int numSwaps,int numCities) {
 	vector<City> path = gene.getPath();
 	for (int i = 0; i < numSwaps; i++) {
-		int startSwap = rand() % (NUM_CITIES - 1);
+		int startSwap = rand() % (numCities - 1);
 		City temp = path[startSwap];
 		path[startSwap] = path[startSwap + 1];
 		path[startSwap + 1] = temp;
@@ -224,8 +223,8 @@ void RWS(vector<Trip>& genePool, vector<Trip>& parents, int popSize,float crosso
 
 
 //picks a random index to splice genes, swaps parts, then changes anything that occurs twice
-void spCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
-	int cut = rand() % (NUM_CITIES - 1); //random placement 1-9 in this case
+void spCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children,int numCities) {
+	int cut = rand() % (numCities - 1); //random placement 1-9 in this case
 	vector<City> path1 = gene1.getPath(); //path 1
 	vector<City> path2 = gene2.getPath(); //path 2
 	vector<City> child1;
@@ -264,11 +263,11 @@ void spCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
 //Uniform crossover works by giving a 20% for a swap between cities at the same index
 //Once Swapped we prune over the entire gene to see which value we need to replace so there are no repeats
 //Kind of slow if the chance is high, but works pretty well and is faster than spCrossover
-void uniformCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
+void uniformCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children,int numCities) {
 	//slow but works, could find a way to improve the speed
 	vector<City> child1 = gene1.getPath(); //path 1
 	vector<City> child2 = gene2.getPath(); //path 2
-	for (int i = 0; i < NUM_CITIES; i++) {
+	for (int i = 0; i < numCities; i++) {
 		float chance = genRandom();
 		City temp = child1[i];
 		City temp2 = child2[i];
@@ -276,7 +275,7 @@ void uniformCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
 			child1[i] = temp2;
 			child2[i] = temp; //swapped
 			int indexVal = i;
-			for (int j = 0; j < NUM_CITIES; j++) {
+			for (int j = 0; j < numCities; j++) {
 				if (child1[j] == temp2 && j != indexVal) {
 					child1[j] = temp;
 				}
@@ -304,13 +303,11 @@ Trip NearestNeighbor(vector<City> initCities, int numCities) {
 	vector<City> U;
 	vector<City> V;
 
-	int picks[NUM_CITIES] = {};
-	for (int i = 0; i < NUM_CITIES; i++) picks[i] = i; //populating picks
-	int newPicks[NUM_CITIES];
-
-	copy(begin(picks), end(picks), begin(newPicks));
-	int n = static_cast<int>(sizeof(newPicks) / sizeof(*newPicks));
-
+	vector<int> picks;
+	for (int i = 0; i < numCities; i++) { picks.push_back(i); };
+	vector<int> newPicks;
+	newPicks.insert(newPicks.begin(), picks.begin(), picks.end());
+	int n = numCities;
 	//create a new random path
 	for (int i = 0; i < numCities; i++) {
 		int randIndex = rand() % n;
@@ -319,6 +316,7 @@ Trip NearestNeighbor(vector<City> initCities, int numCities) {
 		n--;
 		V.push_back(initCities[numToAdd]);
 	}
+
 
 	//Using U and V, U is the nearest neighbor path, V is the original path
 	U.push_back(V[0]);
@@ -363,9 +361,9 @@ float getDistance(City city1, City city2)
 }
 
 
-void partiallyMappedCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) { //work in progress
-	int left = rand() % (NUM_CITIES - 3) + 1;
-	int right_limit = NUM_CITIES - 2;
+void partiallyMappedCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children,int numCities) { //work in progress
+	int left = rand() % (numCities - 3) + 1;
+	int right_limit = numCities - 2;
 	int middle = rand() % (right_limit - left) + left + 1;
 	vector<City> path1 = gene1.getPath(); //path 1
 	vector<City> path2 = gene2.getPath(); //path 2
@@ -385,7 +383,7 @@ void partiallyMappedCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) 
 		child2.push_back(path1[i]);
 	}
 
-	for (int i = middle + 1; i < NUM_CITIES; i++) { //right
+	for (int i = middle + 1; i < numCities; i++) { //right
 		child1.push_back(path1[i]);
 		child2.push_back(path2[i]);
 	}
@@ -407,7 +405,7 @@ void partiallyMappedCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) 
 		cout << child1[i].getID() << ":" << mapping2[child1[i]].getID() << endl;
 	}
 
-	for (int i = 0; i < NUM_CITIES; i++) {
+	for (int i = 0; i < numCities; i++) {
 		// Skip the middle segment, which is already mapped
 		if (i < left || i > middle) {
 			// Legalize child1[i] with mapping1
