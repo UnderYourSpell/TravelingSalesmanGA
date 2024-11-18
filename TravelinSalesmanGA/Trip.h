@@ -22,7 +22,6 @@ public:
 	void calcInvertedProb();
 	void setCumProb(float newProb);
 	float getCumProb();
-
 	float getPathLength();
 	float getInvertedPathLength();
 	void setRouletteProb(float prob);

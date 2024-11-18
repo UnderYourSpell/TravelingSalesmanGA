@@ -122,7 +122,7 @@ void linearRankSelection(vector<Trip>& genePool, vector<Trip>& parents,int selec
 	double n = static_cast<double>(genePool.size());
 	//sort(genePool.begin(), genePool.end(), comparePaths); //Rank selection, so we rank them. SHould arleady be sorted when we pass it
 	
-	double firstFactor  = 1 / n;
+	double firstFactor  = pow(n,-1); //could use exponentiation here!
 	double secondFactor = 2 * sp - 2;
 
 	//Mind you, we are creating a cumulative probability, so the random number will correspond to a range
@@ -150,21 +150,26 @@ void linearRankSelection(vector<Trip>& genePool, vector<Trip>& parents,int selec
 	}
 }
 
-//This maybe doesn't work
+//This maybe doesn't work - me, unenlightened
+//It works now - me, so very enlightened
+//Mind you this function does the same thing as RWS, kinda happy about this one
+//Need to check how many gene's we are actually adding, set it to half pop size like
+//I did for LRS
 void newRWSSelection(vector<Trip>& genePool, vector<Trip>& parents, int popSize) {
-	int n = genePool.size();
+	double n = static_cast<double>(genePool.size());
 	float S = 0;
 
+	//total sum of inverted paths
 	for (auto& gene : genePool) {
-		S += 1.0f / gene.getPathLength();
+		S = S + pow(gene.getPathLength(),-1);
 	}
-	cout << "S:" << S;
-	for (int i = 0; i < popSize; i++) {
-		float a = static_cast<float>(rand()) / RAND_MAX * S;
+
+	for (int i = 0; i < n/2; i++) {
+		float a = genRandom();
 		float iSum = 0;
 		int j = 0;
 		do{
-			iSum = iSum + (1.0f / genePool[j].getPathLength());
+			iSum = iSum + (pow(genePool[j].getPathLength(),-1) / S);
 			j++;
 		} while (iSum < a && j < n-1);
 		parents.push_back(genePool[j]);
@@ -182,7 +187,7 @@ void RWS(vector<Trip>& genePool, vector<Trip>& parents, int popSize,float crosso
 
 	//setting roulette prob - in other words, the inverted path length normalized to the sum of all the inverted paths
 	for (auto& gene : genePool) {
-		float rouletteProb = gene.getInvertedPathLength() / totalSumOfInvertedPaths;
+		float rouletteProb = gene.getInvertedPathLength() / totalSumOfInvertedPaths; // = (1/pathLength) / totalSumOfInvertedPaths
 		gene.setRouletteProb(rouletteProb);
 	}
 

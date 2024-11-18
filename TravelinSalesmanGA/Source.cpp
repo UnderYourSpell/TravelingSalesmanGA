@@ -75,11 +75,11 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 int main() {
 	srand(time(NULL));
 	int run = 1;
-	int nn = 1;
+	int nn = 0;
 	int roulette_wheel = 1; //use roulette wheel or not
 	string crossoverType = "SPX"; //SPX,PMX,UX...can optimize the branching with these
 	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
-	string selectionType = "LRS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection)
+	string selectionType = "newRWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS
 	CrossoverFunc crossoverFunction = selectCrossoverFunction(crossoverType);
 	cout << "Using crossover function: " << crossoverType << endl;
 	string filePath = "./tsp/original10.tsp";
@@ -151,12 +151,6 @@ int main() {
 		int mutations = 0;
 		vector<Trip> newGen;
 		for (int p = 0; p <= MAX_GENERATIONS; p++) {
-			cout << "Genes: " << endl;
-			for (auto& gene : genePool) {
-				gene.printPath();
-				gene.printPathLength();
-				cout << endl;
-			}
 			//roulette wheel probability
 			vector<Trip> parents;
 			if (selectionType == "RWS") {
