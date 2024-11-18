@@ -4,7 +4,7 @@ using namespace std;
 using namespace std::chrono;
 
 //Problem parameters
-const int POP_SIZE = 16; //could change these to a rule based on how many cities there are in the path
+const int POP_SIZE = 32; //could change these to a rule based on how many cities there are in the path
 const float CROSSOVER_PER = 0.5; //needs to be half or else we're fucked
 const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 2; //take the top 2 best solutions from each generations
@@ -84,20 +84,25 @@ int main(int argc, char* argv[]) {
 		cout << "Defaults are SPX, M, and newRWS, and not using Nearest Neighbor" << endl;
 	}
 	else {//hack job, but seeing if it will work
-		string filePath = "./tsp/" + string(argv[1]);
-		string crossoverType = string(argv[2]);
-		string mutationType = string(argv[3]);
-		string selectionType = string(argv[4]);
+		filePath = "./tsp/" + string(argv[1]);
+		crossoverType = string(argv[2]);
+		mutationType = string(argv[3]);
+		selectionType = string(argv[4]);
 		if (argc == 6) {
-			if (argv[5] == "NN") {
-				int nn = 1; //not sure about this
+			if (string(argv[5]) == "NN") {
+			    cout << "Using Nearest Neighbor" << endl;
+				nn = 1; //not sure about this
 			}
 		}
 	}
+	cout << "Using: " << filePath << endl;
+	cout << "Crossover Type: " << crossoverType << endl;
+	cout << "Mutation Type: " << mutationType << endl;
+	cout << "Selection Type: " << selectionType << endl;
+	cout << "Generations: " << MAX_GENERATIONS << endl;
 	srand(time(NULL));
 	int run = 1;
 	CrossoverFunc crossoverFunction = selectCrossoverFunction(crossoverType);
-	cout << "Using crossover function: " << crossoverType << endl;
 	TSPProblemData data = readTSPFile(filePath);
 	cout << data.name << endl;
 	cout << data.comment << endl;
@@ -112,8 +117,9 @@ int main(int argc, char* argv[]) {
 
 	if (run == 0) {
 		Trip NNTrip = NearestNeighbor(initCities, numCities);
-		NNTrip.printPath();
+        cout << "NN Path Length: ";
 		NNTrip.printPathLength();
+		cout << endl;
 		return 0;
 	}
 	else {
@@ -129,17 +135,14 @@ int main(int argc, char* argv[]) {
 			auto durationNN = duration_cast<microseconds>(stopNN - startNN);
 			cout << endl << "Time taken by Nearest Neighbor function: "
 				<< durationNN.count() << " microseconds" << endl;
-			cout << "Original Nearest Neighbors" << endl;
-			NNTrip.printPath();
+			cout << "Original Nearest Neighbors Length: " << endl;
 			NNTrip.printPathLength();
+			cout << "__" << endl;
 			for (int i = 0; i < POP_SIZE; i++) {
 				genePool.push_back(NNTrip);
 			}
 		}
 		else {
-			int picks[] = { 0 };
-			for (int i = 0; i < numCities; i++) picks[i] = i; //populating picks
-
 			for (int i = 0; i < POP_SIZE; i++) {
 				Trip newTrip;
 				vector<int> picks;
@@ -230,11 +233,10 @@ int main(int argc, char* argv[]) {
 			newGen.clear();
 		}
 
-		cout << endl << "Best Solution: " << endl;
-		genePool[0].printPath();
+		cout << endl << "Best Solution Length: " << endl;
 		genePool[0].printPathLength();
 		cout << endl;
-		cout << "Num mutations: " << mutations << endl;
+		cout << "Number of mutations: " << mutations << endl;
 		auto stop = high_resolution_clock::now();
 		auto duration = duration_cast<seconds>(stop - start);
 		cout << endl << "Time taken by function: "
