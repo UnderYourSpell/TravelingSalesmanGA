@@ -1,4 +1,5 @@
 #include "crossover.h"
+#include "NearestNeighbor.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -8,7 +9,7 @@ const int POP_SIZE = 16; //could change these to a rule based on how many cities
 const float CROSSOVER_PER = 0.5; //needs to be half or else we're fucked
 const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 2; //take the top 2 best solutions from each generations
-const int MAX_GENERATIONS = 500; //how many generations we are doing, different gene pools
+const int MAX_GENERATIONS = 100; //how many generations we are doing, different gene pools
 
 struct TSPProblemData {
 	string name;
@@ -68,19 +69,22 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 	else if (crossoverType == "SPX") {
 		return spCrossover;
 	}
+	else if (crossoverType == "ERX") {
+		return edgeRecombination;
+	}
 	return nullptr; // Default case or handle error
 }
 //Note need to change num cities in crossover.h
 int main(int argc, char* argv[]) {
 	//Defaults
-	string crossoverType = "PMX"; //SPX,PMX,UX...can optimize the branching with these
+	string crossoverType = "SPX"; //SPX,ERX,UX...can optimize the branching with these
 	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
-	string selectionType = "newRWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS
-	string filePath = "./tsp/original10.tsp";
+	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS
+	string filePath = "./tsp/att48.tsp";
 	int nn = 0;
 	if (argc < 4) {
-		cout << "No file arguemnts specificed" << endl;
-		cout << "Arguments: filename -CrossoverType -MutationType -selectionType -NN (optional)";
+		cout << "No file arguments specified" << endl;
+		cout << "Arguments: filename CrossoverType MutationType selectionType NN (optional)"<<endl;
 		cout << "Defaults are SPX, M, and newRWS, and not using Nearest Neighbor" << endl;
 	}
 	else {//hack job, but seeing if it will work
@@ -189,8 +193,24 @@ int main(int argc, char* argv[]) {
 			}
 
 			vector<Trip> children;
-			for(size_t i = 0;i+1<parents.size();i+=2){
-				crossoverFunction(parents[i], parents[i + 1],children,numCities);
+			if (crossoverType == "ERX") {
+				//can run these loops in parrallel
+				for (size_t i = 0; i + 1 < parents.size(); i += 2) {
+					crossoverFunction(parents[i], parents[i + 1], children, numCities);
+				}
+				//the reason the loops have different iteration parameters is so
+				//that we have a higher chance of creating more unique genes
+				//that being said, giving ERX two genes DOES NOT guarentee it
+				//will produce the same result every time
+				int n = parents.size();
+				for (size_t i = 0; i + 1 < n / 2; i++) {
+					crossoverFunction(parents[i], parents[n - i - 1], children, numCities);
+				}
+			}
+			else {
+				for(size_t i = 0;i+1<parents.size();i+=2){
+					crossoverFunction(parents[i], parents[i + 1],children,numCities);
+				}
 			}
 			
 			//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially

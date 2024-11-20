@@ -116,6 +116,8 @@ void exponentialRankSelection(vector<Trip>& genePool, vector<Trip>& parents, int
 	//not sure about this one
 }
 
+
+
 //Rank based selection
 void linearRankSelection(vector<Trip>& genePool, vector<Trip>& parents,int selectionPressure) {
 	double sp = double(selectionPressure);
@@ -296,69 +298,112 @@ void uniformCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children,int numCi
 	children.push_back(child2Trip);
 }
 
-float getDistance(City city1, City city2);
+//unlike the other crossover functions, this will only return one new unique gene, therefore, we adjust accordingly
+//as far as I can tell this is working properly on the original dataset
+//based on algorithm described here: https://en.wikipedia.org/wiki/Edge_recombination_operator
+void edgeRecombination(Trip& gene1, Trip& gene2, vector<Trip>& children, int numCities) {
+	vector<City> newGene;
+	vector<City> path1 = gene1.getPath(); //path 1
+	vector<City> path2 = gene2.getPath(); //path 2
+	vector<vector<City>> g1Adj;
+	vector<vector<City>> g2Adj;
+	vector<vector<City>> unionList;
+	map<City, vector<City>> mapping1;
+	map<City, vector<City>> mapping2;
 
-//creates a Trip based on the greedy nearest neighbors
-Trip NearestNeighbor(vector<City> initCities, int numCities) {
-	Trip newTrip;
-	vector<City> U;
-	vector<City> V;
+	//Create adjacency list
+	g1Adj.push_back({ path1[numCities-1], path1[1] });
+	g2Adj.push_back({ path2[numCities-1], path2[1] });
+	for (int i = 1; i < numCities-1; i++) {
+		g1Adj.push_back({ path1[i - 1], path1[i+1] });
+		g2Adj.push_back({ path2[i - 1], path2[i+1] });
+	}
+	g1Adj.push_back({ path1[numCities - 2], path1[0] });
+	g2Adj.push_back({ path2[numCities - 2], path2[0] });
 
-	vector<int> picks;
-	for (int i = 0; i < numCities; i++) { picks.push_back(i); };
-	vector<int> newPicks;
-	newPicks.insert(newPicks.begin(), picks.begin(), picks.end());
-	int n = numCities;
-	//create a new random path
+	//mapping city to its adjacency list
 	for (int i = 0; i < numCities; i++) {
-		int randIndex = rand() % n;
-		int numToAdd = newPicks[randIndex];
-		newPicks[randIndex] = newPicks[n - 1];
-		n--;
-		V.push_back(initCities[numToAdd]);
+		mapping1.insert({ path1[i], g1Adj[i] });
+		mapping2.insert({ path2[i], g2Adj[i] });
+	}
+
+	//merge lists - both map to same city
+	map<City, vector<City>> megaMap;
+	for (int i = 0; i < numCities; i++) {
+		City compCity = path1[i]; // Or path2[i], as they should represent the same cities.
+		vector<City> combinedAdjList = mapping1[compCity];
+		combinedAdjList.insert(
+			combinedAdjList.end(),
+			mapping2[compCity].begin(),
+			mapping2[compCity].end()
+		);
+		//delete duplicates
+		std::sort(combinedAdjList.begin(), combinedAdjList.end());
+		combinedAdjList.erase(
+			std::unique(combinedAdjList.begin(), combinedAdjList.end()),
+			combinedAdjList.end()
+		);
+
+		megaMap[compCity] = combinedAdjList;
 	}
 
 
-	//Using U and V, U is the nearest neighbor path, V is the original path
-	U.push_back(V[0]);
-	V.erase(V.begin());
-	
-	//While U has less than the number of cities, add the nearest city to the last city added to V
-	do {
-		float dist = 999999999999999;
-		City closestCity;
-		int deleteIndex = 0;
-		for (int i = 0; i < V.size(); i++) { //this could be wrong 
-			//find min distance from U[0] to whatever city in v
-			float curDist = getDistance(U.back(), V[i]);
-			if (curDist < dist) {
-				closestCity = V[i];
-				dist = curDist;
-				deleteIndex = i;
+	//Main Algorithm
+	City N = path1[0];
+	while (newGene.size() < numCities) {
+		newGene.push_back(N);
+		string id = N.getID();
+		
+		//remove N from ALL neighbor lists
+		map<City, vector<City>>::iterator itt;
+		for (itt = megaMap.begin(); itt != megaMap.end(); itt++) {
+			City key = itt->first;
+			vector<City> value = itt->second;
+			value.erase(
+				std::remove_if(
+					value.begin(),
+					value.end(),
+					[id](City& city) {return city.getID() == id; }
+				), value.end());
+			megaMap[key] = value;
+		}
+
+		//Find neighbor of N with the smallest Number of neighbors itself
+		//chooses a random one if more than one with the same size list
+		int smallestSize = 99999;
+		City nextN;
+		vector<City> equalSmallest;
+		if (megaMap[N].size() > 0) {
+			for (auto city : megaMap[N]) {
+				int adjSize = megaMap[city].size();
+				if (adjSize < smallestSize) {
+					equalSmallest.push_back(city);
+				}
+				else if (adjSize == smallestSize) {
+					equalSmallest.push_back(city);
+				}
+			}
+			int randIndex = rand() % equalSmallest.size();
+			nextN = equalSmallest[randIndex];
+		}
+		else {
+			//randomly chosen Node not in K = newGene, not super random, but much faster than the alternative I think
+			for (const auto& city : path1) {
+				// Check if city is not in newGene
+				if (std::find(newGene.begin(), newGene.end(), city) == newGene.end()) {
+					nextN = city;
+					break; // Exit loop once we find a city not in newGene
+				}
 			}
 		}
-		U.push_back(closestCity);
-		V.erase(V.begin() + deleteIndex);
-	} while (U.size() < numCities);
-	
-	//Create a trip object to return
-	for (auto& city : U) {
-		newTrip.addCity(city);
+
+		N = nextN;
 	}
-	newTrip.calcPathLength();
-	return newTrip;
-	//newTrip Created
 
-}
+	Trip childTrip(newGene);
+	childTrip.calcPathLength(); //setting the path length
+	children.push_back(childTrip);
 
-float getDistance(City city1, City city2)
-{
-	float x1 = city1.getX();
-	float y1 = city1.getY();
-	float x2 = city2.getX();
-	float y2 = city2.getY();
-	float distance = abs(sqrt(pow((x2 - x1), 2) + pow((y2 - y1), 2)));
-	return distance;
 }
 
 //not able to implement this - but good I tried!
