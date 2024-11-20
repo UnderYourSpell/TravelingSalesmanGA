@@ -361,8 +361,8 @@ float getDistance(City city1, City city2)
 	return distance;
 }
 
-
-void partiallyMappedCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children,int numCities) { //work in progress
+//not able to implement this - but good I tried!
+void PMX(Trip& gene1, Trip& gene2, vector<Trip>& children,int numCities) { //work in progress
 	int left = rand() % (numCities - 3) + 1;
 	int right_limit = numCities - 2;
 	int middle = rand() % (right_limit - left) + left + 1;
@@ -371,15 +371,14 @@ void partiallyMappedCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children,i
 	vector<City> child1;
 	vector<City> child2;
 	cout << "Left: " << left << " Middle: " << middle << endl;
-
-
+	gene1.printPath(); cout << endl;
+	gene2.printPath(); cout << endl;
 	//populate children
-	for (int i = 0; i <= left; i++) { //left
+	for (int i = 0; i < left; i++) { //left
 		child1.push_back(path1[i]);
 		child2.push_back(path2[i]);
 	}
-
-	for (int i = left + 1; i <= middle; i++) { //middle
+	for (int i = left; i <= middle; i++) { //middle - the key section
 		child1.push_back(path2[i]);
 		child2.push_back(path1[i]);
 	}
@@ -389,7 +388,6 @@ void partiallyMappedCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children,i
 		child2.push_back(path2[i]);
 	}
 
-
 	map<City, City> mapping1;
 	map<City, City> mapping2;
 	for (int i = left; i <= middle; i++) {
@@ -397,56 +395,106 @@ void partiallyMappedCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children,i
 		mapping2.insert(pair<City, City>(child2[i], child1[i]));
 	}
 
-	cout << "Mapping 1" << endl;
-	for (int i = left; i <= middle; i++) {
-		cout << child2[i].getID() << ":" << mapping1[child2[i]].getID() << endl;
+	// Output the mappings
+	map<City, City>::iterator ppt;
+	cout << "Mapping 1:" << endl;
+	for (ppt = mapping1.begin(); ppt != mapping1.end(); ppt++) {
+		City key = ppt->first;
+		City value = ppt->second;
+		cout << key.getID() << ":" << value.getID() << "  ";
 	}
-	cout << "Mapping 2" << endl;
-	for (int i = left; i <= middle; i++) {
-		cout << child1[i].getID() << ":" << mapping2[child1[i]].getID() << endl;
+	cout << endl;
+	map<City, City>::iterator lpt;
+	cout << "Mapping 2:" << endl;
+	for (lpt = mapping2.begin(); lpt != mapping2.end(); lpt++) {
+		City key = lpt->first;
+		City value = lpt->second;
+		cout << key.getID() << ":" << value.getID() << "  ";
 	}
+	cout << endl;
 
-	for (int i = 0; i < numCities; i++) {
-		// Skip the middle segment, which is already mapped
-		if (i < left || i > middle) {
-			// Legalize child1[i] with mapping1
-			if (mapping1.count(child1[i]) > 0) {
-				if (mapping1[child1[i]] != child1[i]) {
-					while (mapping1.count(child1[i]) > 0) {
-						cout << "skdjskdj" << endl;
-						child1[i] = mapping1[child1[i]];
-					}
-				}
-			}
+	map<City, City> mapping3;
+	map<City, City> mapping4;
 
-			// Legalize child2[i] with mapping2
-			if (mapping1.count(child2[i]) > 0) {
-				if (mapping2[child2[i]] != child2[i]) {
-					while (mapping1.count(child2[i]) > 0) {
-						child2[i] = mapping2[child2[i]];
-					}
-				}
+	map<City, City>::iterator it;
+	map<City, City>::iterator jt;
+	for (it = mapping1.begin(); it != mapping1.end(); it++) {
+		City key = it->first;
+		City value = it->second;
+		for (jt = mapping1.begin(); jt != mapping1.end(); jt++) {
+			City key1 = jt->first;
+			City value1 = jt->second;
+			if (key.getID() == value1.getID()) {
+				mapping3.insert(pair<City, City>(value, key1));
 			}
 		}
 	}
 
-	Trip child1Trip(child1);
-	Trip child2Trip(child2);
-	//child1Trip.calcPathLength(); //setting the path length
-	//child1Trip.printPath();
-	//child2Trip.printPath();
-	cout << "Parent 1: ";
-	gene1.printPath();
-	Trip child1Trip1(child1);
-	cout << "Child1    ";
-	child1Trip1.printPath();
-	cout << "Parent 2: ";
-	gene2.printPath();
-	cout << "Child2    ";
-	Trip child1Trip2(child2);
-	child1Trip2.printPath();
-	child2Trip.calcPathLength();
-	children.push_back(child1Trip);
-	children.push_back(child2Trip);
+	map<City, City>::iterator ot;
+	map<City, City>::iterator pt;
+	for (ot = mapping2.begin(); ot != mapping2.end(); ot++) {
+		City key = ot->first;
+		City value = ot->second;
+		for (pt = mapping2.begin(); pt != mapping2.end(); pt++) {
+			City key1 = pt->first;
+			City value1 = pt->second;
+			if (key.getID() == value1.getID()) {
+				mapping4.insert(pair<City, City>(value, key1));
+			}
+		}
+	}
+
+	map<City, City>::iterator zt;
+	cout << "Mapping 3:" << endl;
+	for (zt = mapping3.begin(); zt != mapping3.end(); zt++) {
+		City key = zt->first;
+		City value = zt->second;
+		cout << key.getID() << ":" << value.getID() << "  ";
+	}
+	cout << endl;
+
+	map<City, City>::iterator qt;
+	cout << "Mapping 4:" << endl;
+	for (qt = mapping4.begin(); qt != mapping4.end(); qt++) {
+		City key = qt->first;
+		City value = qt->second;
+		cout << key.getID() << ":" << value.getID() << "  ";
+	}
+	cout << endl;
+
+
+
+	cout << "end map" << endl;
+	for (int i = 0; i < numCities; i++) {
+		if (i > left-1 && i < middle + 1) {
+			continue;
+		}
+		if (mapping3.find(child1[i]) != mapping3.end()) {
+			child1[i] = mapping3[child1[i]];
+		}
+		else if (mapping1.find(child1[i]) != mapping1.end()) {
+			child1[i] = mapping1[child1[i]];
+		}
+
+		if (mapping4.find(child2[i]) != mapping4.end()) {
+			child2[i] = mapping4[child2[i]];
+		}
+		else if (mapping2.find(child2[i]) != mapping2.end()) {
+			child2[i] = mapping2[child2[i]];
+		}
+	}
+
+	cout << endl << "Child 1: " << endl;
+	for (auto& city : child1) {
+		cout << city.getID() << " ";
+	}
+	cout << endl;
+	cout << endl;
+	cout << "Child 2: " << endl;
+	for (auto& city : child2) {
+		cout << city.getID() << " ";
+	}
+	cout << endl;
+	cout << endl;
 
 }
