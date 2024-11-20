@@ -1,15 +1,15 @@
 #include "crossover.h"
+#include "NearestNeighbor.h"
 
 using namespace std;
 using namespace std::chrono;
 
 //Problem parameters
-const int POP_SIZE = 16;
-const float CROSSOVER_PER = 0.5;
+const int POP_SIZE = 16; //could change these to a rule based on how many cities there are in the path
+const float CROSSOVER_PER = 0.5; //needs to be half or else we're fucked
 const float MUTATION_PER = 0.5; //50% mutation rate
-const int ELITISM = 2;
-const int REST = 10;
-const int MAX_GENERATIONS = 500;
+const int ELITISM = 2; //take the top 2 best solutions from each generations
+const int MAX_GENERATIONS = 100; //how many generations we are doing, different gene pools
 
 struct TSPProblemData {
 	string name;
@@ -58,45 +58,72 @@ TSPProblemData readTSPFile(const string& filepath) {
 }
 
 //globally setting the crossover function before we start, saves time on branching in the simulation
-using CrossoverFunc = void(*)(Trip&, Trip&, std::vector<Trip>&);
+using CrossoverFunc = void(*)(Trip&, Trip&, std::vector<Trip>&,int);
 CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 	if (crossoverType == "UX") {
 		return uniformCrossover;
 	}
 	else if (crossoverType == "PMX") {
-		return partiallyMappedCrossover;
+		return PMX;
 	}
 	else if (crossoverType == "SPX") {
 		return spCrossover;
 	}
+	else if (crossoverType == "ERX") {
+		return edgeRecombination;
+	}
 	return nullptr; // Default case or handle error
 }
 //Note need to change num cities in crossover.h
-int main() {
+int main(int argc, char* argv[]) {
+	//Defaults
+	string crossoverType = "SPX"; //SPX,ERX,UX...can optimize the branching with these
+	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
+	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS
+	string filePath = "./tsp/att48.tsp";
+	int nn = 0;
+	if (argc < 4) {
+		cout << "No file arguments specified" << endl;
+		cout << "Arguments: filename CrossoverType MutationType selectionType NN (optional)"<<endl;
+		cout << "Defaults are SPX, M, and newRWS, and not using Nearest Neighbor" << endl;
+	}
+	else {//hack job, but seeing if it will work
+		filePath = "./tsp/" + string(argv[1]);
+		crossoverType = string(argv[2]);
+		mutationType = string(argv[3]);
+		selectionType = string(argv[4]);
+		if (argc == 6) {
+			if (string(argv[5]) == "NN") {
+			    cout << "Using Nearest Neighbor" << endl;
+				nn = 1; //not sure about this
+			}
+		}
+	}
+	cout << "Using: " << filePath << endl;
+	cout << "Crossover Type: " << crossoverType << endl;
+	cout << "Mutation Type: " << mutationType << endl;
+	cout << "Selection Type: " << selectionType << endl;
+	cout << "Generations: " << MAX_GENERATIONS << endl;
 	srand(time(NULL));
 	int run = 1;
-	int nn = 0;
-	int roulette_wheel = 1; //use roulette wheel or not
-	string crossoverType = "SPX"; //SPX,PMX,UX...can optimize the branching with these
-	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
-	string selectionType = "newRWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS
 	CrossoverFunc crossoverFunction = selectCrossoverFunction(crossoverType);
-	cout << "Using crossover function: " << crossoverType << endl;
-	string filePath = "./tsp/original10.tsp";
 	TSPProblemData data = readTSPFile(filePath);
 	cout << data.name << endl;
 	cout << data.comment << endl;
 	cout << data.type << endl;
 	cout << data.dimension << endl;
+	int numCities = data.dimension;
+	cout << "Number of cities: " << numCities << endl;
 	cout << data.edge_weight_type << endl;
 	vector<City> initCities = data.initCities;
-	int mutationLength  = 4;
-	int numSwaps = 3;
+	int mutationLength  = int(floor(0.2 * numCities));
+	int numSwaps = int(floor(0.3*numCities)); //arbitrary rules, can change these
 
 	if (run == 0) {
-		Trip NNTrip = NearestNeighbor(initCities, NUM_CITIES);
-		NNTrip.printPath();
+		Trip NNTrip = NearestNeighbor(initCities, numCities);
+        cout << "NN Path Length: ";
 		NNTrip.printPathLength();
+		cout << endl;
 		return 0;
 	}
 	else {
@@ -107,29 +134,28 @@ int main() {
 		//nn == 1 means we are using nearest neighbor
 		if (nn == 1) {
 			auto startNN = high_resolution_clock::now();
-			Trip NNTrip = NearestNeighbor(initCities, NUM_CITIES);
+			Trip NNTrip = NearestNeighbor(initCities, numCities);
 			auto stopNN = high_resolution_clock::now();
 			auto durationNN = duration_cast<microseconds>(stopNN - startNN);
 			cout << endl << "Time taken by Nearest Neighbor function: "
 				<< durationNN.count() << " microseconds" << endl;
-			cout << "Original Nearest Neighbors" << endl;
-			NNTrip.printPath();
+			cout << "Original Nearest Neighbors Length: " << endl;
 			NNTrip.printPathLength();
+			cout << "__" << endl;
 			for (int i = 0; i < POP_SIZE; i++) {
 				genePool.push_back(NNTrip);
 			}
 		}
 		else {
-			int picks[NUM_CITIES] = {};
-			for (int i = 0; i < NUM_CITIES; i++) picks[i] = i; //populating picks
-
 			for (int i = 0; i < POP_SIZE; i++) {
 				Trip newTrip;
-				int newPicks[NUM_CITIES];
-				copy(begin(picks), end(picks), begin(newPicks));
-				int n = static_cast<int>(sizeof(newPicks) / sizeof(*newPicks));
-				//my way of populating random genes O(n)
-				for (int i = 0; i < NUM_CITIES; i++) {
+				vector<int> picks;
+				for (int i = 0; i < numCities; i++) { picks.push_back(i); };
+				vector<int> newPicks;
+				newPicks.insert(newPicks.begin(), picks.begin(), picks.end());
+				int n = numCities;
+
+				for (int i = 0; i < numCities; i++) {
 					int randIndex = rand() % n;
 					int numToAdd = newPicks[randIndex];
 					newPicks[randIndex] = newPicks[n - 1];
@@ -148,7 +174,7 @@ int main() {
 			cout << endl;
 		}
 		*/
-		int mutations = 0;
+		int mutations = 0;//tracking mutations
 		vector<Trip> newGen;
 		for (int p = 0; p <= MAX_GENERATIONS; p++) {
 			//roulette wheel probability
@@ -167,28 +193,43 @@ int main() {
 			}
 
 			vector<Trip> children;
-			for(size_t i = 0;i+1<parents.size();i+=2){
-				crossoverFunction(parents[i], parents[i + 1],children);
+			if (crossoverType == "ERX") {
+				//can run these loops in parrallel
+				for (size_t i = 0; i + 1 < parents.size(); i += 2) {
+					crossoverFunction(parents[i], parents[i + 1], children, numCities);
+				}
+				//the reason the loops have different iteration parameters is so
+				//that we have a higher chance of creating more unique genes
+				//that being said, giving ERX two genes DOES NOT guarentee it
+				//will produce the same result every time
+				int n = parents.size();
+				for (size_t i = 0; i + 1 < n / 2; i++) {
+					crossoverFunction(parents[i], parents[n - i - 1], children, numCities);
+				}
+			}
+			else {
+				for(size_t i = 0;i+1<parents.size();i+=2){
+					crossoverFunction(parents[i], parents[i + 1],children,numCities);
+				}
 			}
 			
 			//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
-			//I could try and parralalize this
+			//I could try and parallelize this
 			for (size_t i = 0; i < children.size(); i++) {
 				float mutateThreshold = genRandom();
 				if (mutateThreshold > (1 - MUTATION_PER)) {
 					mutations++;
 					if (mutationType == "S") {
-						mutate(children[i]);
+						mutate(children[i], numCities);
 					}
 					else if (mutationType == "R") {
-						scrambleMutate(children[i], mutationLength);
+						scrambleMutate(children[i], mutationLength, numCities);
 					}
 					else if (mutationType == "M") {
-						moroMutate(children[i], numSwaps);
+						moroMutate(children[i], numSwaps, numCities);
 					}
 				}
 			}
-
 
 			//now we add the children to the current population - sort - then move on
 			//1. Grab top 2 from original gene pool
@@ -212,28 +253,15 @@ int main() {
 			newGen.clear();
 		}
 
-		cout << endl << "Best Solution: " << endl;
-		genePool[0].printPath();
+		cout << endl << "Best Solution Length: " << endl;
 		genePool[0].printPathLength();
 		cout << endl;
-		cout << "Num mutations: " << mutations << endl;
+		cout << "Number of mutations: " << mutations << endl;
 		auto stop = high_resolution_clock::now();
 		auto duration = duration_cast<seconds>(stop - start);
 		cout << endl << "Time taken by function: "
 			<< duration.count() << " Seconds" << endl;
 		return 0;
 	}
-		/*
-	for (auto& gene : genePool) {
-		gene.printPath();
-		gene.printPathLength();
-		cout << endl;
-	}
-	cout << "Gene Pool" << endl;
-	for (auto& gene : genePool) {
-		gene.printPath();
-		gene.printPathLength();
-		cout << endl;
-	}
-	*/
+	
 }

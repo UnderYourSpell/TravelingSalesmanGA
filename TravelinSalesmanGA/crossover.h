@@ -14,9 +14,9 @@
 #include <functional> // for std::ref
 #include <map>
 #include <set>
+#include <math.h>
 
 using namespace std;
-const int NUM_CITIES = 10;
 
 bool comparePaths(Trip i1, Trip i2) {
 	return(i1.getPathLength() < i2.getPathLength());
@@ -31,9 +31,9 @@ double genRandomDouble() { //generates random number between 0 and 1
 }
 
 //swapping two random cities
-void mutate(Trip& gene) { 
-	int firstSwapIndex = rand() % (NUM_CITIES - 1);
-	int secondSwapIndex = rand() % (NUM_CITIES - 1);
+void mutate(Trip& gene,int numCities) { 
+	int firstSwapIndex = rand() % (numCities- 1);
+	int secondSwapIndex = rand() % (numCities - 1);
 	vector<City> mutatedPath = gene.getPath();
 	City temp = mutatedPath[firstSwapIndex];
 	mutatedPath[firstSwapIndex] = mutatedPath[secondSwapIndex];
@@ -43,9 +43,9 @@ void mutate(Trip& gene) {
 }
 
 //Takes a length, randomizes a selection in the path of that length, scrambles them, then puts them back in the path
-void scrambleMutate(Trip& gene,int mutateLength) {
+void scrambleMutate(Trip& gene,int mutateLength, int numCities) {
 	vector<City> path = gene.getPath();
-	int startIndex = rand() % (NUM_CITIES - mutateLength - 1);
+	int startIndex = rand() % (numCities - mutateLength - 1);
 	vector<City> cities;
 	for (int i = startIndex; i < (startIndex + mutateLength); i++) {
 		cities.push_back(path[i]);
@@ -65,10 +65,10 @@ These swaps occur at random points, but it involves only swapping two cities
 that are next to each other.  So if we choose index 8, cities 8 and 9 are swapped.
 If its 0, cities 0 and 1 are swapped. We do this numSwaps times.
 */
-void moroMutate(Trip& gene, int numSwaps) {
+void moroMutate(Trip& gene, int numSwaps,int numCities) {
 	vector<City> path = gene.getPath();
 	for (int i = 0; i < numSwaps; i++) {
-		int startSwap = rand() % (NUM_CITIES - 1);
+		int startSwap = rand() % (numCities - 1);
 		City temp = path[startSwap];
 		path[startSwap] = path[startSwap + 1];
 		path[startSwap + 1] = temp;
@@ -115,6 +115,8 @@ void exponentialRankSelection(vector<Trip>& genePool, vector<Trip>& parents, int
 
 	//not sure about this one
 }
+
+
 
 //Rank based selection
 void linearRankSelection(vector<Trip>& genePool, vector<Trip>& parents,int selectionPressure) {
@@ -224,8 +226,8 @@ void RWS(vector<Trip>& genePool, vector<Trip>& parents, int popSize,float crosso
 
 
 //picks a random index to splice genes, swaps parts, then changes anything that occurs twice
-void spCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
-	int cut = rand() % (NUM_CITIES - 1); //random placement 1-9 in this case
+void spCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children,int numCities) {
+	int cut = rand() % (numCities - 1); //random placement 1-9 in this case
 	vector<City> path1 = gene1.getPath(); //path 1
 	vector<City> path2 = gene2.getPath(); //path 2
 	vector<City> child1;
@@ -264,11 +266,11 @@ void spCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
 //Uniform crossover works by giving a 20% for a swap between cities at the same index
 //Once Swapped we prune over the entire gene to see which value we need to replace so there are no repeats
 //Kind of slow if the chance is high, but works pretty well and is faster than spCrossover
-void uniformCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
+void uniformCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children,int numCities) {
 	//slow but works, could find a way to improve the speed
 	vector<City> child1 = gene1.getPath(); //path 1
 	vector<City> child2 = gene2.getPath(); //path 2
-	for (int i = 0; i < NUM_CITIES; i++) {
+	for (int i = 0; i < numCities; i++) {
 		float chance = genRandom();
 		City temp = child1[i];
 		City temp2 = child2[i];
@@ -276,7 +278,7 @@ void uniformCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
 			child1[i] = temp2;
 			child2[i] = temp; //swapped
 			int indexVal = i;
-			for (int j = 0; j < NUM_CITIES; j++) {
+			for (int j = 0; j < numCities; j++) {
 				if (child1[j] == temp2 && j != indexVal) {
 					child1[j] = temp;
 				}
@@ -296,100 +298,140 @@ void uniformCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) {
 	children.push_back(child2Trip);
 }
 
-float getDistance(City city1, City city2);
+//unlike the other crossover functions, this will only return one new unique gene, therefore, we adjust accordingly
+//as far as I can tell this is working properly on the original dataset
+//based on algorithm described here: https://en.wikipedia.org/wiki/Edge_recombination_operator
+void edgeRecombination(Trip& gene1, Trip& gene2, vector<Trip>& children, int numCities) {
+	vector<City> newGene;
+	vector<City> path1 = gene1.getPath(); //path 1
+	vector<City> path2 = gene2.getPath(); //path 2
+	vector<vector<City>> g1Adj;
+	vector<vector<City>> g2Adj;
+	vector<vector<City>> unionList;
+	map<City, vector<City>> mapping1;
+	map<City, vector<City>> mapping2;
 
-//creates a Trip based on the greedy nearest neighbors
-Trip NearestNeighbor(vector<City> initCities, int numCities) {
-	Trip newTrip;
-	vector<City> U;
-	vector<City> V;
+	//Create adjacency list
+	g1Adj.push_back({ path1[numCities-1], path1[1] });
+	g2Adj.push_back({ path2[numCities-1], path2[1] });
+	for (int i = 1; i < numCities-1; i++) {
+		g1Adj.push_back({ path1[i - 1], path1[i+1] });
+		g2Adj.push_back({ path2[i - 1], path2[i+1] });
+	}
+	g1Adj.push_back({ path1[numCities - 2], path1[0] });
+	g2Adj.push_back({ path2[numCities - 2], path2[0] });
 
-	int picks[NUM_CITIES] = {};
-	for (int i = 0; i < NUM_CITIES; i++) picks[i] = i; //populating picks
-	int newPicks[NUM_CITIES];
-
-	copy(begin(picks), end(picks), begin(newPicks));
-	int n = static_cast<int>(sizeof(newPicks) / sizeof(*newPicks));
-
-	//create a new random path
+	//mapping city to its adjacency list
 	for (int i = 0; i < numCities; i++) {
-		int randIndex = rand() % n;
-		int numToAdd = newPicks[randIndex];
-		newPicks[randIndex] = newPicks[n - 1];
-		n--;
-		V.push_back(initCities[numToAdd]);
+		mapping1.insert({ path1[i], g1Adj[i] });
+		mapping2.insert({ path2[i], g2Adj[i] });
 	}
 
-	//Using U and V, U is the nearest neighbor path, V is the original path
-	U.push_back(V[0]);
-	V.erase(V.begin());
-	
-	//While U has less than the number of cities, add the nearest city to the last city added to V
-	do {
-		float dist = 999999999999999;
-		City closestCity;
-		int deleteIndex = 0;
-		for (int i = 0; i < V.size(); i++) { //this could be wrong 
-			//find min distance from U[0] to whatever city in v
-			float curDist = getDistance(U.back(), V[i]);
-			if (curDist < dist) {
-				closestCity = V[i];
-				dist = curDist;
-				deleteIndex = i;
+	//merge lists - both map to same city
+	map<City, vector<City>> megaMap;
+	for (int i = 0; i < numCities; i++) {
+		City compCity = path1[i]; // Or path2[i], as they should represent the same cities.
+		vector<City> combinedAdjList = mapping1[compCity];
+		combinedAdjList.insert(
+			combinedAdjList.end(),
+			mapping2[compCity].begin(),
+			mapping2[compCity].end()
+		);
+		//delete duplicates
+		std::sort(combinedAdjList.begin(), combinedAdjList.end());
+		combinedAdjList.erase(
+			std::unique(combinedAdjList.begin(), combinedAdjList.end()),
+			combinedAdjList.end()
+		);
+
+		megaMap[compCity] = combinedAdjList;
+	}
+
+
+	//Main Algorithm
+	City N = path1[0];
+	while (newGene.size() < numCities) {
+		newGene.push_back(N);
+		string id = N.getID();
+		
+		//remove N from ALL neighbor lists
+		map<City, vector<City>>::iterator itt;
+		for (itt = megaMap.begin(); itt != megaMap.end(); itt++) {
+			City key = itt->first;
+			vector<City> value = itt->second;
+			value.erase(
+				std::remove_if(
+					value.begin(),
+					value.end(),
+					[id](City& city) {return city.getID() == id; }
+				), value.end());
+			megaMap[key] = value;
+		}
+
+		//Find neighbor of N with the smallest Number of neighbors itself
+		//chooses a random one if more than one with the same size list
+		int smallestSize = 99999;
+		City nextN;
+		vector<City> equalSmallest;
+		if (megaMap[N].size() > 0) {
+			for (auto city : megaMap[N]) {
+				int adjSize = megaMap[city].size();
+				if (adjSize < smallestSize) {
+					equalSmallest.push_back(city);
+				}
+				else if (adjSize == smallestSize) {
+					equalSmallest.push_back(city);
+				}
+			}
+			int randIndex = rand() % equalSmallest.size();
+			nextN = equalSmallest[randIndex];
+		}
+		else {
+			//randomly chosen Node not in K = newGene, not super random, but much faster than the alternative I think
+			for (const auto& city : path1) {
+				// Check if city is not in newGene
+				if (std::find(newGene.begin(), newGene.end(), city) == newGene.end()) {
+					nextN = city;
+					break; // Exit loop once we find a city not in newGene
+				}
 			}
 		}
-		U.push_back(closestCity);
-		V.erase(V.begin() + deleteIndex);
-	} while (U.size() < numCities);
-	
-	//Create a trip object to return
-	for (auto& city : U) {
-		newTrip.addCity(city);
+
+		N = nextN;
 	}
-	newTrip.calcPathLength();
-	return newTrip;
-	//newTrip Created
+
+	Trip childTrip(newGene);
+	childTrip.calcPathLength(); //setting the path length
+	children.push_back(childTrip);
 
 }
 
-float getDistance(City city1, City city2)
-{
-	float x1 = city1.getX();
-	float y1 = city1.getY();
-	float x2 = city2.getX();
-	float y2 = city2.getY();
-	float distance = abs(sqrt(pow((x2 - x1), 2) + pow((y2 - y1), 2)));
-	return distance;
-}
-
-
-void partiallyMappedCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) { //work in progress
-	int left = rand() % (NUM_CITIES - 3) + 1;
-	int right_limit = NUM_CITIES - 2;
+//not able to implement this - but good I tried!
+void PMX(Trip& gene1, Trip& gene2, vector<Trip>& children,int numCities) { //work in progress
+	int left = rand() % (numCities - 3) + 1;
+	int right_limit = numCities - 2;
 	int middle = rand() % (right_limit - left) + left + 1;
 	vector<City> path1 = gene1.getPath(); //path 1
 	vector<City> path2 = gene2.getPath(); //path 2
 	vector<City> child1;
 	vector<City> child2;
 	cout << "Left: " << left << " Middle: " << middle << endl;
-
-
+	gene1.printPath(); cout << endl;
+	gene2.printPath(); cout << endl;
 	//populate children
-	for (int i = 0; i <= left; i++) { //left
+	for (int i = 0; i < left; i++) { //left
 		child1.push_back(path1[i]);
 		child2.push_back(path2[i]);
 	}
-
-	for (int i = left + 1; i <= middle; i++) { //middle
+	for (int i = left; i <= middle; i++) { //middle - the key section
 		child1.push_back(path2[i]);
 		child2.push_back(path1[i]);
 	}
 
-	for (int i = middle + 1; i < NUM_CITIES; i++) { //right
+	for (int i = middle + 1; i < numCities; i++) { //right
 		child1.push_back(path1[i]);
 		child2.push_back(path2[i]);
 	}
-
 
 	map<City, City> mapping1;
 	map<City, City> mapping2;
@@ -398,56 +440,106 @@ void partiallyMappedCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children) 
 		mapping2.insert(pair<City, City>(child2[i], child1[i]));
 	}
 
-	cout << "Mapping 1" << endl;
-	for (int i = left; i <= middle; i++) {
-		cout << child2[i].getID() << ":" << mapping1[child2[i]].getID() << endl;
+	// Output the mappings
+	map<City, City>::iterator ppt;
+	cout << "Mapping 1:" << endl;
+	for (ppt = mapping1.begin(); ppt != mapping1.end(); ppt++) {
+		City key = ppt->first;
+		City value = ppt->second;
+		cout << key.getID() << ":" << value.getID() << "  ";
 	}
-	cout << "Mapping 2" << endl;
-	for (int i = left; i <= middle; i++) {
-		cout << child1[i].getID() << ":" << mapping2[child1[i]].getID() << endl;
+	cout << endl;
+	map<City, City>::iterator lpt;
+	cout << "Mapping 2:" << endl;
+	for (lpt = mapping2.begin(); lpt != mapping2.end(); lpt++) {
+		City key = lpt->first;
+		City value = lpt->second;
+		cout << key.getID() << ":" << value.getID() << "  ";
 	}
+	cout << endl;
 
-	for (int i = 0; i < NUM_CITIES; i++) {
-		// Skip the middle segment, which is already mapped
-		if (i < left || i > middle) {
-			// Legalize child1[i] with mapping1
-			if (mapping1.count(child1[i]) > 0) {
-				if (mapping1[child1[i]] != child1[i]) {
-					while (mapping1.count(child1[i]) > 0) {
-						cout << "skdjskdj" << endl;
-						child1[i] = mapping1[child1[i]];
-					}
-				}
-			}
+	map<City, City> mapping3;
+	map<City, City> mapping4;
 
-			// Legalize child2[i] with mapping2
-			if (mapping1.count(child2[i]) > 0) {
-				if (mapping2[child2[i]] != child2[i]) {
-					while (mapping1.count(child2[i]) > 0) {
-						child2[i] = mapping2[child2[i]];
-					}
-				}
+	map<City, City>::iterator it;
+	map<City, City>::iterator jt;
+	for (it = mapping1.begin(); it != mapping1.end(); it++) {
+		City key = it->first;
+		City value = it->second;
+		for (jt = mapping1.begin(); jt != mapping1.end(); jt++) {
+			City key1 = jt->first;
+			City value1 = jt->second;
+			if (key.getID() == value1.getID()) {
+				mapping3.insert(pair<City, City>(value, key1));
 			}
 		}
 	}
 
-	Trip child1Trip(child1);
-	Trip child2Trip(child2);
-	//child1Trip.calcPathLength(); //setting the path length
-	//child1Trip.printPath();
-	//child2Trip.printPath();
-	cout << "Parent 1: ";
-	gene1.printPath();
-	Trip child1Trip1(child1);
-	cout << "Child1    ";
-	child1Trip1.printPath();
-	cout << "Parent 2: ";
-	gene2.printPath();
-	cout << "Child2    ";
-	Trip child1Trip2(child2);
-	child1Trip2.printPath();
-	child2Trip.calcPathLength();
-	children.push_back(child1Trip);
-	children.push_back(child2Trip);
+	map<City, City>::iterator ot;
+	map<City, City>::iterator pt;
+	for (ot = mapping2.begin(); ot != mapping2.end(); ot++) {
+		City key = ot->first;
+		City value = ot->second;
+		for (pt = mapping2.begin(); pt != mapping2.end(); pt++) {
+			City key1 = pt->first;
+			City value1 = pt->second;
+			if (key.getID() == value1.getID()) {
+				mapping4.insert(pair<City, City>(value, key1));
+			}
+		}
+	}
+
+	map<City, City>::iterator zt;
+	cout << "Mapping 3:" << endl;
+	for (zt = mapping3.begin(); zt != mapping3.end(); zt++) {
+		City key = zt->first;
+		City value = zt->second;
+		cout << key.getID() << ":" << value.getID() << "  ";
+	}
+	cout << endl;
+
+	map<City, City>::iterator qt;
+	cout << "Mapping 4:" << endl;
+	for (qt = mapping4.begin(); qt != mapping4.end(); qt++) {
+		City key = qt->first;
+		City value = qt->second;
+		cout << key.getID() << ":" << value.getID() << "  ";
+	}
+	cout << endl;
+
+
+
+	cout << "end map" << endl;
+	for (int i = 0; i < numCities; i++) {
+		if (i > left-1 && i < middle + 1) {
+			continue;
+		}
+		if (mapping3.find(child1[i]) != mapping3.end()) {
+			child1[i] = mapping3[child1[i]];
+		}
+		else if (mapping1.find(child1[i]) != mapping1.end()) {
+			child1[i] = mapping1[child1[i]];
+		}
+
+		if (mapping4.find(child2[i]) != mapping4.end()) {
+			child2[i] = mapping4[child2[i]];
+		}
+		else if (mapping2.find(child2[i]) != mapping2.end()) {
+			child2[i] = mapping2[child2[i]];
+		}
+	}
+
+	cout << endl << "Child 1: " << endl;
+	for (auto& city : child1) {
+		cout << city.getID() << " ";
+	}
+	cout << endl;
+	cout << endl;
+	cout << "Child 2: " << endl;
+	for (auto& city : child2) {
+		cout << city.getID() << " ";
+	}
+	cout << endl;
+	cout << endl;
 
 }
