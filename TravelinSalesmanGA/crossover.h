@@ -14,6 +14,7 @@
 #include <functional> // for std::ref
 #include <map>
 #include <set>
+#include <math.h>
 
 using namespace std;
 

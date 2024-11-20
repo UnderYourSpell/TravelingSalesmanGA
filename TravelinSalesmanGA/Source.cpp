@@ -4,12 +4,11 @@ using namespace std;
 using namespace std::chrono;
 
 //Problem parameters
-const int POP_SIZE = 16;
-const float CROSSOVER_PER = 0.5;
+const int POP_SIZE = 32; //could change these to a rule based on how many cities there are in the path
+const float CROSSOVER_PER = 0.5; //needs to be half or else we're fucked
 const float MUTATION_PER = 0.5; //50% mutation rate
-const int ELITISM = 2;
-const int REST = 10;
-const int MAX_GENERATIONS = 500;
+const int ELITISM = 2; //take the top 2 best solutions from each generations
+const int MAX_GENERATIONS = 500; //how many generations we are doing, different gene pools
 
 struct TSPProblemData {
 	string name;
@@ -72,33 +71,55 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 	return nullptr; // Default case or handle error
 }
 //Note need to change num cities in crossover.h
-int main() {
-	srand(time(NULL));
-	int run = 1;
-	int nn = 1;
-	int roulette_wheel = 1; //use roulette wheel or not
+int main(int argc, char* argv[]) {
+	//Defaults
 	string crossoverType = "SPX"; //SPX,PMX,UX...can optimize the branching with these
 	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
 	string selectionType = "newRWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS
-	CrossoverFunc crossoverFunction = selectCrossoverFunction(crossoverType);
-	cout << "Using crossover function: " << crossoverType << endl;
 	string filePath = "./tsp/original10.tsp";
+	int nn = 0;
+	if (argc < 4) {
+		cout << "No file arguemnts specificed" << endl;
+		cout << "Arguments: filename -CrossoverType -MutationType -selectionType -NN (optional)";
+		cout << "Defaults are SPX, M, and newRWS, and not using Nearest Neighbor" << endl;
+	}
+	else {//hack job, but seeing if it will work
+		filePath = "./tsp/" + string(argv[1]);
+		crossoverType = string(argv[2]);
+		mutationType = string(argv[3]);
+		selectionType = string(argv[4]);
+		if (argc == 6) {
+			if (string(argv[5]) == "NN") {
+			    cout << "Using Nearest Neighbor" << endl;
+				nn = 1; //not sure about this
+			}
+		}
+	}
+	cout << "Using: " << filePath << endl;
+	cout << "Crossover Type: " << crossoverType << endl;
+	cout << "Mutation Type: " << mutationType << endl;
+	cout << "Selection Type: " << selectionType << endl;
+	cout << "Generations: " << MAX_GENERATIONS << endl;
+	srand(time(NULL));
+	int run = 1;
+	CrossoverFunc crossoverFunction = selectCrossoverFunction(crossoverType);
 	TSPProblemData data = readTSPFile(filePath);
 	cout << data.name << endl;
 	cout << data.comment << endl;
 	cout << data.type << endl;
 	cout << data.dimension << endl;
 	int numCities = data.dimension;
-	cout << numCities << endl;
+	cout << "Number of cities: " << numCities << endl;
 	cout << data.edge_weight_type << endl;
 	vector<City> initCities = data.initCities;
-	int mutationLength  = 4;
-	int numSwaps = 3;
+	int mutationLength  = int(floor(0.2 * numCities));
+	int numSwaps = int(floor(0.3*numCities)); //arbitrary rules, can change these
 
 	if (run == 0) {
 		Trip NNTrip = NearestNeighbor(initCities, numCities);
-		NNTrip.printPath();
+        cout << "NN Path Length: ";
 		NNTrip.printPathLength();
+		cout << endl;
 		return 0;
 	}
 	else {
@@ -114,17 +135,14 @@ int main() {
 			auto durationNN = duration_cast<microseconds>(stopNN - startNN);
 			cout << endl << "Time taken by Nearest Neighbor function: "
 				<< durationNN.count() << " microseconds" << endl;
-			cout << "Original Nearest Neighbors" << endl;
-			NNTrip.printPath();
+			cout << "Original Nearest Neighbors Length: " << endl;
 			NNTrip.printPathLength();
+			cout << "__" << endl;
 			for (int i = 0; i < POP_SIZE; i++) {
 				genePool.push_back(NNTrip);
 			}
 		}
 		else {
-			int picks[] = { 0 };
-			for (int i = 0; i < numCities; i++) picks[i] = i; //populating picks
-
 			for (int i = 0; i < POP_SIZE; i++) {
 				Trip newTrip;
 				vector<int> picks;
@@ -176,7 +194,7 @@ int main() {
 			}
 			
 			//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
-			//I could try and parralalize this
+			//I could try and parallelize this
 			for (size_t i = 0; i < children.size(); i++) {
 				float mutateThreshold = genRandom();
 				if (mutateThreshold > (1 - MUTATION_PER)) {
@@ -192,7 +210,6 @@ int main() {
 					}
 				}
 			}
-
 
 			//now we add the children to the current population - sort - then move on
 			//1. Grab top 2 from original gene pool
@@ -216,28 +233,15 @@ int main() {
 			newGen.clear();
 		}
 
-		cout << endl << "Best Solution: " << endl;
-		genePool[0].printPath();
+		cout << endl << "Best Solution Length: " << endl;
 		genePool[0].printPathLength();
 		cout << endl;
-		cout << "Num mutations: " << mutations << endl;
+		cout << "Number of mutations: " << mutations << endl;
 		auto stop = high_resolution_clock::now();
 		auto duration = duration_cast<seconds>(stop - start);
 		cout << endl << "Time taken by function: "
 			<< duration.count() << " Seconds" << endl;
 		return 0;
 	}
-		/*
-	for (auto& gene : genePool) {
-		gene.printPath();
-		gene.printPathLength();
-		cout << endl;
-	}
-	cout << "Gene Pool" << endl;
-	for (auto& gene : genePool) {
-		gene.printPath();
-		gene.printPathLength();
-		cout << endl;
-	}
-	*/
+	
 }
