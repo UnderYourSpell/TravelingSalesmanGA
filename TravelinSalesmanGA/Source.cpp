@@ -4,7 +4,7 @@ using namespace std;
 using namespace std::chrono;
 
 //Problem parameters
-const int POP_SIZE = 32; //could change these to a rule based on how many cities there are in the path
+const int POP_SIZE = 16; //could change these to a rule based on how many cities there are in the path
 const float CROSSOVER_PER = 0.5; //needs to be half or else we're fucked
 const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 2; //take the top 2 best solutions from each generations
@@ -63,7 +63,7 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 		return uniformCrossover;
 	}
 	else if (crossoverType == "PMX") {
-		return partiallyMappedCrossover;
+		return PMX;
 	}
 	else if (crossoverType == "SPX") {
 		return spCrossover;
@@ -73,7 +73,7 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 //Note need to change num cities in crossover.h
 int main(int argc, char* argv[]) {
 	//Defaults
-	string crossoverType = "SPX"; //SPX,PMX,UX...can optimize the branching with these
+	string crossoverType = "PMX"; //SPX,PMX,UX...can optimize the branching with these
 	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
 	string selectionType = "newRWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS
 	string filePath = "./tsp/original10.tsp";
