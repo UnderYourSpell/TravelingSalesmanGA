@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
 	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
 	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS
 	string filePath = "./tsp/eil51.tsp";
-	int nn = 1;
+	int nn = 0;
 	if (argc < 4) {
 		cout << "No file arguments specified" << endl;
 		cout << "Arguments: filename CrossoverType MutationType selectionType NN (optional)"<<endl;
