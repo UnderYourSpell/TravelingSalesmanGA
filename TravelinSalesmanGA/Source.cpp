@@ -1,6 +1,6 @@
 #include "crossover.h"
 #include "NearestNeighbor.h"
-
+#include <omp.h>
 using namespace std;
 using namespace std::chrono;
 
@@ -9,7 +9,7 @@ const int POP_SIZE = 16; //could change these to a rule based on how many cities
 const float CROSSOVER_PER = 0.5; //needs to be half or else we're fucked
 const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 2; //take the top 2 best solutions from each generations
-const int MAX_GENERATIONS = 100; //how many generations we are doing, different gene pools
+const int MAX_GENERATIONS = 500; //how many generations we are doing, different gene pools
 
 struct TSPProblemData {
 	string name;
@@ -77,10 +77,10 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 //Note need to change num cities in crossover.h
 int main(int argc, char* argv[]) {
 	//Defaults
-	string crossoverType = "SPX"; //SPX,ERX,UX...can optimize the branching with these
+	string crossoverType = "UX"; //SPX,ERX,UX...can optimize the branching with these
 	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
 	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS
-	string filePath = "./tsp/att48.tsp";
+	string filePath = "./tsp/original10.tsp";
 	int nn = 0;
 	if (argc < 4) {
 		cout << "No file arguments specified" << endl;
@@ -195,19 +195,20 @@ int main(int argc, char* argv[]) {
 			vector<Trip> children;
 			if (crossoverType == "ERX") {
 				//can run these loops in parrallel
+				int n = parents.size();
+				
+				#pragma omp parallel for
 				for (size_t i = 0; i + 1 < parents.size(); i += 2) {
 					crossoverFunction(parents[i], parents[i + 1], children, numCities);
 				}
-				//the reason the loops have different iteration parameters is so
-				//that we have a higher chance of creating more unique genes
-				//that being said, giving ERX two genes DOES NOT guarentee it
-				//will produce the same result every time
-				int n = parents.size();
+		
+				#pragma omp parallel for
 				for (size_t i = 0; i + 1 < n / 2; i++) {
 					crossoverFunction(parents[i], parents[n - i - 1], children, numCities);
 				}
 			}
 			else {
+				#pragma omp parallel for
 				for(size_t i = 0;i+1<parents.size();i+=2){
 					crossoverFunction(parents[i], parents[i + 1],children,numCities);
 				}
@@ -215,6 +216,7 @@ int main(int argc, char* argv[]) {
 			
 			//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
 			//I could try and parallelize this
+			#pragma omp parralel for
 			for (size_t i = 0; i < children.size(); i++) {
 				float mutateThreshold = genRandom();
 				if (mutateThreshold > (1 - MUTATION_PER)) {
