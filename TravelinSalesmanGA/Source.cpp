@@ -77,11 +77,11 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 //Note need to change num cities in crossover.h
 int main(int argc, char* argv[]) {
 	//Defaults
-	string crossoverType = "UX"; //SPX,ERX,UX...can optimize the branching with these
+	string crossoverType = "SPX"; //SPX,ERX,UX...can optimize the branching with these
 	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
 	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS
-	string filePath = "./tsp/original10.tsp";
-	int nn = 0;
+	string filePath = "./tsp/eil51.tsp";
+	int nn = 1;
 	if (argc < 4) {
 		cout << "No file arguments specified" << endl;
 		cout << "Arguments: filename CrossoverType MutationType selectionType NN (optional)"<<endl;
@@ -255,10 +255,10 @@ int main(int argc, char* argv[]) {
 			newGen.clear();
 		}
 
+		cout << "Number of mutations: " << mutations << endl;
 		cout << endl << "Best Solution Length: " << endl;
 		genePool[0].printPathLength();
 		cout << endl;
-		cout << "Number of mutations: " << mutations << endl;
 		auto stop = high_resolution_clock::now();
 		auto duration = duration_cast<seconds>(stop - start);
 		cout << endl << "Time taken by function: "
