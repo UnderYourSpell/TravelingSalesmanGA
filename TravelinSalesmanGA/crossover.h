@@ -278,8 +278,8 @@ void uniformCrossover(Trip& gene1, Trip& gene2, vector<Trip>& children,int numCi
 			child1[i] = temp2;
 			child2[i] = temp; //swapped
 			int indexVal = i;
-			for (int j = 0; j < numCities; j++) {
-				if (child1[j] == temp2 && j != indexVal) {
+			for (int j = 0; j < numCities; j++) { //replace
+				if (child1[j] == temp2 && j != indexVal) { //not index val makes sure we dont replace what we just swapped
 					child1[j] = temp;
 				}
 				if (child2[j] == temp && j != indexVal) {
@@ -327,7 +327,7 @@ void edgeRecombination(Trip& gene1, Trip& gene2, vector<Trip>& children, int num
 		mapping2.insert({ path2[i], g2Adj[i] });
 	}
 
-	//merge lists - both map to same city
+	//merge lists - all adjacent cities to same city in either path
 	map<City, vector<City>> megaMap;
 	for (int i = 0; i < numCities; i++) {
 		City compCity = path1[i]; // Or path2[i], as they should represent the same cities.
@@ -370,7 +370,7 @@ void edgeRecombination(Trip& gene1, Trip& gene2, vector<Trip>& children, int num
 
 		//Find neighbor of N with the smallest Number of neighbors itself
 		//chooses a random one if more than one with the same size list
-		int smallestSize = 99999;
+		int smallestSize = 999999;
 		City nextN;
 		vector<City> equalSmallest;
 		if (megaMap[N].size() > 0) {
@@ -386,7 +386,7 @@ void edgeRecombination(Trip& gene1, Trip& gene2, vector<Trip>& children, int num
 			int randIndex = rand() % equalSmallest.size();
 			nextN = equalSmallest[randIndex];
 		}
-		else {
+		else { //not used as much? i think
 			//randomly chosen Node not in K = newGene, not super random, but much faster than the alternative I think
 			for (const auto& city : path1) {
 				// Check if city is not in newGene
