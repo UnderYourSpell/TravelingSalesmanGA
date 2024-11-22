@@ -1,15 +1,13 @@
 #include "crossover.h"
 #include "NearestNeighbor.h"
-
+#include <omp.h>
 using namespace std;
 using namespace std::chrono;
 
 //Problem parameters
-const int POP_SIZE = 16; //could change these to a rule based on how many cities there are in the path
 const float CROSSOVER_PER = 0.5; //needs to be half or else we're fucked
 const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 2; //take the top 2 best solutions from each generations
-const int MAX_GENERATIONS = 100; //how many generations we are doing, different gene pools
 
 struct TSPProblemData {
 	string name;
@@ -76,15 +74,17 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 }
 //Note need to change num cities in crossover.h
 int main(int argc, char* argv[]) {
-	//Defaults
+	//Defaults - can run w/o args given just fine
 	string crossoverType = "SPX"; //SPX,ERX,UX...can optimize the branching with these
 	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
 	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS
-	string filePath = "./tsp/att48.tsp";
-	int nn = 0;
-	if (argc < 4) {
+	string filePath = "./tsp/eil51.tsp";
+	int maxGenerations = 500;
+	int populationSize = 16;
+	int nn = 1;
+	if (argc < 6) {
 		cout << "No file arguments specified" << endl;
-		cout << "Arguments: filename CrossoverType MutationType selectionType NN (optional)"<<endl;
+		cout << "Arguments: filename CrossoverType MutationType selectionType maxGenerations populationSize NN (optional)"<<endl;
 		cout << "Defaults are SPX, M, and newRWS, and not using Nearest Neighbor" << endl;
 	}
 	else {//hack job, but seeing if it will work
@@ -92,8 +92,10 @@ int main(int argc, char* argv[]) {
 		crossoverType = string(argv[2]);
 		mutationType = string(argv[3]);
 		selectionType = string(argv[4]);
-		if (argc == 6) {
-			if (string(argv[5]) == "NN") {
+		maxGenerations = int(argv[5]);
+		populationSize = int(argv[6]);
+		if (argc == 8) {
+			if (string(argv[7]) == "NN") {
 			    cout << "Using Nearest Neighbor" << endl;
 				nn = 1; //not sure about this
 			}
@@ -103,9 +105,9 @@ int main(int argc, char* argv[]) {
 	cout << "Crossover Type: " << crossoverType << endl;
 	cout << "Mutation Type: " << mutationType << endl;
 	cout << "Selection Type: " << selectionType << endl;
-	cout << "Generations: " << MAX_GENERATIONS << endl;
+	cout << "Generations: " << maxGenerations << endl;
+	cout << "Population Size: " << populationSize << endl;
 	srand(time(NULL));
-	int run = 1;
 	CrossoverFunc crossoverFunction = selectCrossoverFunction(crossoverType);
 	TSPProblemData data = readTSPFile(filePath);
 	cout << data.name << endl;
@@ -119,149 +121,142 @@ int main(int argc, char* argv[]) {
 	int mutationLength  = int(floor(0.2 * numCities));
 	int numSwaps = int(floor(0.3*numCities)); //arbitrary rules, can change these
 
-	if (run == 0) {
-		Trip NNTrip = NearestNeighbor(initCities, numCities);
-        cout << "NN Path Length: ";
-		NNTrip.printPathLength();
-		cout << endl;
-		return 0;
-	}
-	else {
-		auto start = high_resolution_clock::now();
+	auto start = high_resolution_clock::now();
 
-		//Add nearest Neighbor clause - need to write nearest neighbor
-		vector<Trip> genePool;
-		//nn == 1 means we are using nearest neighbor
-		if (nn == 1) {
-			auto startNN = high_resolution_clock::now();
-			Trip NNTrip = NearestNeighbor(initCities, numCities);
-			auto stopNN = high_resolution_clock::now();
-			auto durationNN = duration_cast<microseconds>(stopNN - startNN);
-			cout << endl << "Time taken by Nearest Neighbor function: "
-				<< durationNN.count() << " microseconds" << endl;
-			cout << "Original Nearest Neighbors Length: " << endl;
-			NNTrip.printPathLength();
-			cout << "__" << endl;
-			for (int i = 0; i < POP_SIZE; i++) {
-				genePool.push_back(NNTrip);
+	//Add nearest Neighbor clause - need to write nearest neighbor
+	vector<Trip> genePool;
+	//nn == 1 means we are using nearest neighbor
+	if (nn == 1) {
+		auto startNN = high_resolution_clock::now();
+		Trip NNTrip = NearestNeighbor(initCities, numCities);
+		auto stopNN = high_resolution_clock::now();
+		auto durationNN = duration_cast<microseconds>(stopNN - startNN);
+		cout << endl << "Time taken by Nearest Neighbor function: "
+			<< durationNN.count() << " microseconds" << endl;
+		cout << "Original Nearest Neighbors Length: " << endl;
+		NNTrip.printPathLength();
+		cout << "__" << endl;
+		for (int i = 0; i < populationSize; i++) {
+			genePool.push_back(NNTrip);
+		}
+	}
+	else { //randomly generates solutions
+		for (int i = 0; i < populationSize; i++) {
+			Trip newTrip;
+			vector<int> picks;
+			for (int i = 0; i < numCities; i++) { picks.push_back(i); };
+			vector<int> newPicks;
+			newPicks.insert(newPicks.begin(), picks.begin(), picks.end());
+			int n = numCities;
+
+			for (int i = 0; i < numCities; i++) {
+				int randIndex = rand() % n;
+				int numToAdd = newPicks[randIndex];
+				newPicks[randIndex] = newPicks[n - 1];
+				n--;
+				newTrip.addCity(initCities[numToAdd]);
+			}
+			newTrip.calcPathLength();
+			genePool.push_back(newTrip);
+		}
+	}
+	/*
+	cout << "Genes: " << endl;
+	for (auto& gene : genePool) {
+		gene.printPath();
+		gene.printPathLength();
+		cout << endl;
+	}
+	*/
+	int mutations = 0;//tracking mutations
+	vector<Trip> newGen;
+	for (int p = 0; p <= maxGenerations; p++) {
+		//roulette wheel probability
+		vector<Trip> parents;
+		if (selectionType == "RWS") {
+			RWS(genePool, parents, populationSize,CROSSOVER_PER);
+		}
+		else if(selectionType == "SUS") {
+			SUSSelection(genePool, parents, populationSize);
+		}
+		else if (selectionType == "newRWS") {
+			newRWSSelection(genePool, parents, populationSize);
+		}
+		else if (selectionType == "LRS") {
+			linearRankSelection(genePool, parents, 2);
+		}
+
+		vector<Trip> children;
+		if (crossoverType == "ERX") {
+			//can run these loops in parallel
+			//each ERX run produces only 1 child
+			int n = parents.size();
+				
+			#pragma omp parallel for
+			for (size_t i = 0; i + 1 < parents.size(); i += 2) {
+				crossoverFunction(parents[i], parents[i + 1], children, numCities);
+			}
+			//choosing different cities, instead of i and i +1, we choose i and n-i, then converge to the middle two
+			#pragma omp parallel for
+			for (size_t i = 0; i + 1 < n / 2; i++) {
+				crossoverFunction(parents[i], parents[n - i - 1], children, numCities);
 			}
 		}
 		else {
-			for (int i = 0; i < POP_SIZE; i++) {
-				Trip newTrip;
-				vector<int> picks;
-				for (int i = 0; i < numCities; i++) { picks.push_back(i); };
-				vector<int> newPicks;
-				newPicks.insert(newPicks.begin(), picks.begin(), picks.end());
-				int n = numCities;
-
-				for (int i = 0; i < numCities; i++) {
-					int randIndex = rand() % n;
-					int numToAdd = newPicks[randIndex];
-					newPicks[randIndex] = newPicks[n - 1];
-					n--;
-					newTrip.addCity(initCities[numToAdd]);
-				}
-				newTrip.calcPathLength();
-				genePool.push_back(newTrip);
+			#pragma omp parallel for
+			for(size_t i = 0;i+1<parents.size();i+=2){
+				crossoverFunction(parents[i], parents[i + 1],children,numCities);
 			}
 		}
-		/*
-		cout << "Genes: " << endl;
-		for (auto& gene : genePool) {
-			gene.printPath();
-			gene.printPathLength();
-			cout << endl;
-		}
-		*/
-		int mutations = 0;//tracking mutations
-		vector<Trip> newGen;
-		for (int p = 0; p <= MAX_GENERATIONS; p++) {
-			//roulette wheel probability
-			vector<Trip> parents;
-			if (selectionType == "RWS") {
-				RWS(genePool, parents, POP_SIZE,CROSSOVER_PER);
-			}
-			else if(selectionType == "SUS") {
-				SUSSelection(genePool, parents, POP_SIZE);
-			}
-			else if (selectionType == "newRWS") {
-				newRWSSelection(genePool, parents, POP_SIZE);
-			}
-			else if (selectionType == "LRS") {
-				linearRankSelection(genePool, parents, 2);
-			}
-
-			vector<Trip> children;
-			if (crossoverType == "ERX") {
-				//can run these loops in parrallel
-				for (size_t i = 0; i + 1 < parents.size(); i += 2) {
-					crossoverFunction(parents[i], parents[i + 1], children, numCities);
-				}
-				//the reason the loops have different iteration parameters is so
-				//that we have a higher chance of creating more unique genes
-				//that being said, giving ERX two genes DOES NOT guarentee it
-				//will produce the same result every time
-				int n = parents.size();
-				for (size_t i = 0; i + 1 < n / 2; i++) {
-					crossoverFunction(parents[i], parents[n - i - 1], children, numCities);
-				}
-			}
-			else {
-				for(size_t i = 0;i+1<parents.size();i+=2){
-					crossoverFunction(parents[i], parents[i + 1],children,numCities);
-				}
-			}
 			
-			//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
-			//I could try and parallelize this
-			for (size_t i = 0; i < children.size(); i++) {
-				float mutateThreshold = genRandom();
-				if (mutateThreshold > (1 - MUTATION_PER)) {
-					mutations++;
-					if (mutationType == "S") {
-						mutate(children[i], numCities);
-					}
-					else if (mutationType == "R") {
-						scrambleMutate(children[i], mutationLength, numCities);
-					}
-					else if (mutationType == "M") {
-						moroMutate(children[i], numSwaps, numCities);
-					}
+		//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
+		//I could try and parallelize this
+		#pragma omp parralel for
+		for (size_t i = 0; i < children.size(); i++) {
+			float mutateThreshold = genRandom();
+			if (mutateThreshold > (1 - MUTATION_PER)) {
+				mutations++;
+				if (mutationType == "S") {
+					mutate(children[i], numCities);
+				}
+				else if (mutationType == "R") {
+					scrambleMutate(children[i], mutationLength, numCities);
+				}
+				else if (mutationType == "M") {
+					moroMutate(children[i], numSwaps, numCities);
 				}
 			}
-
-			//now we add the children to the current population - sort - then move on
-			//1. Grab top 2 from original gene pool
-			//2. Put all parents and children in the same vector - add children to parent vector
-			//3. sort the parent vector, grab enough to fill enough for a population
-			sort(genePool.begin(), genePool.end(), comparePaths); //sort the original
-			//1.
-			for (auto i = genePool.begin(); i != genePool.begin() + ELITISM; ++i) {
-				newGen.push_back(*i);
-			}
-			//2.
-			parents.insert(parents.end(), children.begin(), children.end());
-			sort(parents.begin(), parents.end(), comparePaths); //sort the original
-			//3.
-			for (auto i = parents.begin(); i != parents.end()-ELITISM; ++i) {
-				newGen.push_back(*i);
-			}
-
-			genePool.clear();
-			genePool = newGen;
-			newGen.clear();
 		}
 
-		cout << endl << "Best Solution Length: " << endl;
-		genePool[0].printPathLength();
-		cout << endl;
-		cout << "Number of mutations: " << mutations << endl;
-		auto stop = high_resolution_clock::now();
-		auto duration = duration_cast<seconds>(stop - start);
-		cout << endl << "Time taken by function: "
-			<< duration.count() << " Seconds" << endl;
-		return 0;
+		//now we add the children to the current population - sort - then move on
+		//1. Grab top 2 from original gene pool
+		//2. Put all parents and children in the same vector - add children to parent vector
+		//3. sort the parent vector, grab enough to fill enough for a population
+		sort(genePool.begin(), genePool.end(), comparePaths); //sort the original
+		//1.
+		for (auto i = genePool.begin(); i != genePool.begin() + ELITISM; ++i) {
+			newGen.push_back(*i);
+		}
+		//2.
+		parents.insert(parents.end(), children.begin(), children.end());
+		sort(parents.begin(), parents.end(), comparePaths); //sort the original
+		//3.
+		for (auto i = parents.begin(); i != parents.end()-ELITISM; ++i) {
+			newGen.push_back(*i);
+		}
+
+		genePool.clear();
+		genePool = newGen;
+		newGen.clear();
 	}
-	
-}
+
+	cout << "Number of mutations: " << mutations << endl;
+	cout << endl << "Best Solution Length: " << endl;
+	genePool[0].printPathLength();
+	cout << endl;
+	auto stop = high_resolution_clock::now();
+	auto duration = duration_cast<seconds>(stop - start);
+	cout << endl << "Time taken by function: "
+		<< duration.count() << " Seconds" << endl;
+	return 0;
+}	
