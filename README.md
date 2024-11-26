@@ -14,7 +14,7 @@ make
 
 - Max Generations dictates how many populations the algorithm will create
 
-- Population Size dicatets how many individuals are in a each generation
+- Population Size dictates how many individuals are in a each generation
 
 - NN can be left blank or if you put NN, it will run nearest neighbors before it starts with generations.
 
