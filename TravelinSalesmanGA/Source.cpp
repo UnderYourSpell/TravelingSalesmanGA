@@ -210,7 +210,7 @@ int main(int argc, char* argv[]) {
 		}
 			
 		//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
-		//I could try and parallelize this
+		//I could try and parallelize this - and I did
 		#pragma omp parralel for
 		for (size_t i = 0; i < children.size(); i++) {
 			float mutateThreshold = genRandom();
