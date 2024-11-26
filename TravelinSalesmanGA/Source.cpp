@@ -77,11 +77,11 @@ int main(int argc, char* argv[]) {
 	//Defaults - can run w/o args given just fine
 	string crossoverType = "SPX"; //SPX,ERX,UX...can optimize the branching with these
 	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
-	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS
-	string filePath = "./tsp/eil51.tsp";
+	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS, MDEV - mean deviation
+	string filePath = "./tsp/original10.tsp";
 	int maxGenerations = 500;
 	int populationSize = 16;
-	int nn = 1;
+	int nn = 0;
 	if (argc < 6) {
 		cout << "No file arguments specified" << endl;
 		cout << "Arguments: filename CrossoverType MutationType selectionType maxGenerations populationSize NN (optional)"<<endl;
@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
 	vector<City> initCities = data.initCities;
 	int mutationLength  = int(floor(0.2 * numCities));
 	int numSwaps = int(floor(0.3*numCities)); //arbitrary rules, can change these
-
+	int stopGens = maxGenerations / 3;
 	auto start = high_resolution_clock::now();
 
 	//Add nearest Neighbor clause - need to write nearest neighbor
@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
 			<< durationNN.count() << " microseconds" << endl;
 		cout << "Original Nearest Neighbors Length: " << endl;
 		NNTrip.printPathLength();
-		cout << "__" << endl;
+		cout << "__" << endl; //don't question it
 		for (int i = 0; i < populationSize; i++) {
 			genePool.push_back(NNTrip);
 		}
@@ -169,23 +169,20 @@ int main(int argc, char* argv[]) {
 	}
 	*/
 	int mutations = 0;//tracking mutations
+	float bestPath = genePool[0].getPathLength(); //arbitrary for first iteration
+	int endCounter = 0;
 	vector<Trip> newGen;
 	for (int p = 0; p <= maxGenerations; p++) {
-		//roulette wheel probability
 		vector<Trip> parents;
-		if (selectionType == "RWS") {
-			RWS(genePool, parents, populationSize,CROSSOVER_PER);
-		}
-		else if(selectionType == "SUS") {
-			SUSSelection(genePool, parents, populationSize);
-		}
-		else if (selectionType == "newRWS") {
-			newRWSSelection(genePool, parents, populationSize);
-		}
-		else if (selectionType == "LRS") {
-			linearRankSelection(genePool, parents, 2);
-		}
 
+		//Selection of parents
+		if (selectionType == "RWS") RWS(genePool, parents, populationSize, CROSSOVER_PER);
+		else if (selectionType == "SUS") SUSSelection(genePool, parents, populationSize);
+		else if (selectionType == "newRWS") newRWSSelection(genePool, parents, populationSize);
+		else if (selectionType == "LRS") linearRankSelection(genePool, parents, 2);
+		else if (selectionType == "MDEV") meanDevSelection(genePool, parents);
+		
+		//Breeding of children, creation of child genes?
 		vector<Trip> children;
 		if (crossoverType == "ERX") {
 			//can run these loops in parallel
@@ -210,21 +207,16 @@ int main(int argc, char* argv[]) {
 		}
 			
 		//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
-		//I could try and parallelize this
+		//I could try and parallelize this - and I did
 		#pragma omp parralel for
 		for (size_t i = 0; i < children.size(); i++) {
 			float mutateThreshold = genRandom();
 			if (mutateThreshold > (1 - MUTATION_PER)) {
 				mutations++;
-				if (mutationType == "S") {
-					mutate(children[i], numCities);
-				}
-				else if (mutationType == "R") {
-					scrambleMutate(children[i], mutationLength, numCities);
-				}
-				else if (mutationType == "M") {
-					moroMutate(children[i], numSwaps, numCities);
-				}
+				if (mutationType == "S") mutate(children[i], numCities);
+				else if (mutationType == "R") scrambleMutate(children[i], mutationLength, numCities);
+				else if (mutationType == "M") moroMutate(children[i], numSwaps, numCities);
+				
 			}
 		}
 
@@ -248,6 +240,20 @@ int main(int argc, char* argv[]) {
 		genePool.clear();
 		genePool = newGen;
 		newGen.clear();
+
+		float curBest = genePool[0].getPathLength();
+		
+		//stopping after we don't find a better path after 1/3 amount of generations completed
+		if (curBest < bestPath) {
+			bestPath = curBest;
+			endCounter = 0;
+		}
+		else endCounter++;
+
+		if (endCounter == stopGens) {
+			cout << "Stopped after " << p << " generations" << endl;
+			break;
+		}
 	}
 
 	cout << "Number of mutations: " << mutations << endl;
