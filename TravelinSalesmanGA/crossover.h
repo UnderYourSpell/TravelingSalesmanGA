@@ -18,11 +18,13 @@
 
 using namespace std;
 
+//used in sorting genes
 bool comparePaths(Trip i1, Trip i2) {
 	return(i1.getPathLength() < i2.getPathLength());
 }
 
-bool compareMeanDevs(Trip i1, Trip i2) {
+//sorts by dveiation from mean, higher means more deviation
+bool compareMeanDevs(Trip i1, Trip i2) { 
 	return(i1.getLRSProb() > i2.getLRSProb());
 }
 
@@ -109,6 +111,7 @@ void SUSSelection(vector<Trip>& genePool, vector<Trip>& parents,int popSize) {
 	} while (j < n);
 }
 
+//doesn't work
 void exponentialRankSelection(vector<Trip>& genePool, vector<Trip>& parents, int selectionPressure) {
 	double n = static_cast<double>(genePool.size());
 	double c = (n * 2 * (n - 1)) / (6 * (n - 1) + n);
@@ -116,8 +119,6 @@ void exponentialRankSelection(vector<Trip>& genePool, vector<Trip>& parents, int
 		double p = 1.0f * exp((-i) / c);
 		genePool[i].setERSProb(p);
 	}
-
-	//not sure about this one
 }
 
 
@@ -427,10 +428,10 @@ void edgeRecombination(Trip& gene1, Trip& gene2, vector<Trip>& children, int num
 	Trip childTrip(newGene);
 	childTrip.calcPathLength(); //setting the path length
 	children.push_back(childTrip);
-
 }
 
 //not able to implement this - but good I tried!
+//could try and change this to K-point crossover
 void PMX(Trip& gene1, Trip& gene2, vector<Trip>& children,int numCities) { //work in progress
 	int left = rand() % (numCities - 3) + 1;
 	int right_limit = numCities - 2;

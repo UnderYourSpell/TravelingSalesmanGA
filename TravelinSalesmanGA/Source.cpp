@@ -5,9 +5,16 @@ using namespace std;
 using namespace std::chrono;
 
 //Problem parameters
-const float CROSSOVER_PER = 0.5; //needs to be half or else we're fucked
+const float CROSSOVER_PER = 0.5; //needs to be half - DO NOT CHANGE
 const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 2; //take the top 2 best solutions from each generations
+
+/*
+* 
+* #pragma omp parallel for
+* int tid = omp_get_thread_num();
+* printf("The thread %d  executes i = %d\n", tid, i);
+*/
 
 struct TSPProblemData {
 	string name;
@@ -79,8 +86,8 @@ int main(int argc, char* argv[]) {
 	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
 	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS, MDEV - mean deviation
 	string filePath = "./tsp/original10.tsp";
-	int maxGenerations = 500;
-	int populationSize = 16;
+	int maxGenerations = 100;
+	int populationSize = 128;
 	int nn = 0;
 	if (argc < 6) {
 		cout << "No file arguments specified" << endl;
@@ -185,22 +192,18 @@ int main(int argc, char* argv[]) {
 		//Breeding of children, creation of child genes?
 		vector<Trip> children;
 		if (crossoverType == "ERX") {
-			//can run these loops in parallel
 			//each ERX run produces only 1 child
 			int n = parents.size();
 				
-			#pragma omp parallel for
 			for (size_t i = 0; i + 1 < parents.size(); i += 2) {
 				crossoverFunction(parents[i], parents[i + 1], children, numCities);
 			}
 			//choosing different cities, instead of i and i +1, we choose i and n-i, then converge to the middle two
-			#pragma omp parallel for
 			for (size_t i = 0; i + 1 < n / 2; i++) {
 				crossoverFunction(parents[i], parents[n - i - 1], children, numCities);
 			}
 		}
 		else {
-			#pragma omp parallel for
 			for(size_t i = 0;i+1<parents.size();i+=2){
 				crossoverFunction(parents[i], parents[i + 1],children,numCities);
 			}
@@ -208,7 +211,6 @@ int main(int argc, char* argv[]) {
 			
 		//mutation  - swapping cities in a path - 20% mutation chance per gene in children pool - introducing new genes essentially
 		//I could try and parallelize this - and I did
-		#pragma omp parralel for
 		for (size_t i = 0; i < children.size(); i++) {
 			float mutateThreshold = genRandom();
 			if (mutateThreshold > (1 - MUTATION_PER)) {
