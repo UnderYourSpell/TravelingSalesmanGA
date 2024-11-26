@@ -30,7 +30,7 @@ float Trip::getDistance(City city1, City city2)
 	float y1 = city1.getY();
 	float x2 = city2.getX();
 	float y2 = city2.getY();
-	float distance = abs(sqrt(pow((x2 - x1), 2) + pow((y2 - y1), 2)));
+	float distance = sqrt(pow((x2 - x1), 2) + pow((y2 - y1), 2));
 	return distance;
 }
 

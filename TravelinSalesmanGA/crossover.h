@@ -22,6 +22,10 @@ bool comparePaths(Trip i1, Trip i2) {
 	return(i1.getPathLength() < i2.getPathLength());
 }
 
+bool compareMeanDevs(Trip i1, Trip i2) {
+	return(i1.getLRSProb() > i2.getLRSProb());
+}
+
 float genRandom() { //generates random number between 0 and 1
 	return ((float)rand()) / RAND_MAX;
 }
@@ -119,16 +123,15 @@ void exponentialRankSelection(vector<Trip>& genePool, vector<Trip>& parents, int
 
 
 //Rank based selection
+//https://en.wikipedia.org/wiki/Selection_(genetic_algorithm) equation for LRS, I wrote the code mostly off the wikipedia article
+// (1/n) * (sp - (2sp - 2)(i-1/n-1))
 void linearRankSelection(vector<Trip>& genePool, vector<Trip>& parents,int selectionPressure) {
 	double sp = double(selectionPressure);
-	double n = static_cast<double>(genePool.size());
-	//sort(genePool.begin(), genePool.end(), comparePaths); //Rank selection, so we rank them. SHould arleady be sorted when we pass it
-	
-	double firstFactor  = pow(n,-1); //could use exponentiation here!
+	double n = static_cast<double>(genePool.size());	
+	double firstFactor  = pow(n,-1); //n/1
 	double secondFactor = 2 * sp - 2;
 
 	//Mind you, we are creating a cumulative probability, so the random number will correspond to a range
-	//https://en.wikipedia.org/wiki/Selection_(genetic_algorithm) equation for LRS
 	double p = firstFactor * sp;
 	genePool[0].setLRSProb(p);
 	for (int i = 1; i < n; i++) {
@@ -136,7 +139,6 @@ void linearRankSelection(vector<Trip>& genePool, vector<Trip>& parents,int selec
 		genePool[i].setLRSProb(p);
 	}
 
-	//Ugly
 	for (int i = 0; i < n/2; i++) {
 		double a = genRandomDouble();
 		Trip* previousGene = nullptr;
@@ -149,6 +151,27 @@ void linearRankSelection(vector<Trip>& genePool, vector<Trip>& parents,int selec
 			}
 			previousGene = &gene;
 		}
+	}
+}
+
+//selects the genes with the largest divergence from the mean of the current gene pool
+void meanDevSelection(vector<Trip>& genePool, vector<Trip>& parents) {
+	int n = static_cast<int>(genePool.size());
+	float oneOverN = 1.0f / static_cast<double>(genePool.size());
+	float fHat = 0;
+	//calculate mean
+	for (auto& gene : genePool) {
+		fHat += gene.getPathLength();
+	}
+	float mean = oneOverN * fHat;
+	
+	for (auto& gene : genePool) {
+		gene.setLRSProb(abs(gene.getPathLength() - mean));
+	}
+	//sort by largest divergence from mean
+	sort(genePool.begin(), genePool.end(), compareMeanDevs);
+	for (int i = 0; i < n / 2; i++) {
+		parents.push_back(genePool[i]);
 	}
 }
 
@@ -179,6 +202,7 @@ void newRWSSelection(vector<Trip>& genePool, vector<Trip>& parents, int popSize)
 
 }
 
+//original Roulette wheel, performs a bit better than the new one - no while loops
 void RWS(vector<Trip>& genePool, vector<Trip>& parents, int popSize,float crossoverPer) {
 	//setting up for the roulette wheel, need a total sum of inverted path's (inverted because we are minimizing not maximizing)
 	float totalSumOfInvertedPaths = 0;
