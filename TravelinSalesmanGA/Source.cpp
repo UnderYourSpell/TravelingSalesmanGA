@@ -1,12 +1,11 @@
 #include "crossover.h"
 #include "NearestNeighbor.h"
-#include <omp.h>
 using namespace std;
 using namespace std::chrono;
 
 //Problem parameters
 const float CROSSOVER_PER = 0.5; //needs to be half - DO NOT CHANGE
-const float MUTATION_PER = 0.2; //50% mutation rate
+const float MUTATION_PER = 0.5; //50% mutation rate
 const int ELITISM = 2; //take the top 2 best solutions from each generations
 
 /*
