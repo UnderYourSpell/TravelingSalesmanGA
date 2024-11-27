@@ -84,10 +84,10 @@ int main(int argc, char* argv[]) {
 	//Defaults - can run w/o args given just fine
 	string crossoverType = "SPX"; //SPX,ERX,UX...can optimize the branching with these
 	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
-	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS, MDEV - mean deviation
+	string selectionType = "SUSN"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS, MDEV - mean deviation
 	string filePath = "./tsp/original10.tsp";
 	int maxGenerations = 100;
-	int populationSize = 128;
+	int populationSize = 32;
 	int nn = 0;
 	if (argc < 6) {
 		cout << "No file arguments specified" << endl;
@@ -188,7 +188,8 @@ int main(int argc, char* argv[]) {
 		else if (selectionType == "newRWS") newRWSSelection(genePool, parents, populationSize);
 		else if (selectionType == "LRS") linearRankSelection(genePool, parents, 2);
 		else if (selectionType == "MDEV") meanDevSelection(genePool, parents);
-		
+		else if (selectionType == "SUSN") SUSSelectionNew(genePool, parents);
+
 		//Breeding of children, creation of child genes?
 		vector<Trip> children;
 		if (crossoverType == "ERX") {
