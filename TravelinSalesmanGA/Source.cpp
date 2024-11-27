@@ -6,7 +6,7 @@ using namespace std::chrono;
 
 //Problem parameters
 const float CROSSOVER_PER = 0.5; //needs to be half - DO NOT CHANGE
-const float MUTATION_PER = 0.5; //50% mutation rate
+const float MUTATION_PER = 0.2; //50% mutation rate
 const int ELITISM = 2; //take the top 2 best solutions from each generations
 
 /*
@@ -83,11 +83,11 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 int main(int argc, char* argv[]) {
 	//Defaults - can run w/o args given just fine
 	string crossoverType = "SPX"; //SPX,ERX,UX...can optimize the branching with these
-	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
+	string mutationType = "S"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
 	string selectionType = "RWS"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS, MDEV - mean deviation
 	string filePath = "./tsp/original10.tsp";
-	int maxGenerations = 100;
-	int populationSize = 128;
+	int maxGenerations = 500;
+	int populationSize = 64;
 	int nn = 0;
 	if (argc < 6) {
 		cout << "No file arguments specified" << endl;
@@ -99,8 +99,8 @@ int main(int argc, char* argv[]) {
 		crossoverType = string(argv[2]);
 		mutationType = string(argv[3]);
 		selectionType = string(argv[4]);
-		maxGenerations = int(argv[5]);
-		populationSize = int(argv[6]);
+		maxGenerations = atoi(argv[5]);
+		populationSize = atoi(argv[6]);
 		if (argc == 8) {
 			if (string(argv[7]) == "NN") {
 			    cout << "Using Nearest Neighbor" << endl;
@@ -263,8 +263,8 @@ int main(int argc, char* argv[]) {
 	genePool[0].printPathLength();
 	cout << endl;
 	auto stop = high_resolution_clock::now();
-	auto duration = duration_cast<seconds>(stop - start);
+	auto duration = duration_cast<milliseconds>(stop - start);
 	cout << endl << "Time taken by function: "
-		<< duration.count() << " Seconds" << endl;
+		<< duration.count() << " micro Seconds" << endl;
 	return 0;
 }	
