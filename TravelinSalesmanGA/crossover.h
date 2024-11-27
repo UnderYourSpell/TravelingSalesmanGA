@@ -84,6 +84,7 @@ void moroMutate(Trip& gene, int numSwaps,int numCities) {
 }
 
 //Stochastic Universal Sampling
+//Doesn't populate parents with enough genes
 void SUSSelection(vector<Trip>& genePool, vector<Trip>& parents,int popSize) {
 	int n = genePool.size();
 	double factor = static_cast<double>(1) / n;
@@ -110,6 +111,34 @@ void SUSSelection(vector<Trip>& genePool, vector<Trip>& parents,int popSize) {
 		}
 	} while (j < n);
 }
+
+//Stochastic Universal Sampling new version - fixed, and I actually Understand the algorithm now
+//https://en.wikipedia.org/wiki/Stochastic_universal_sampling
+void SUSSelectionNew(vector<Trip>& genePool, vector<Trip>& parents) {
+	int N = genePool.size() / 2;
+	float F = 0;
+	vector<float> keepRange;
+	for (auto& gene : genePool) {
+		F = F + gene.getPathLength();
+	}
+	int P = F / N;
+	int start = rand() % P;
+	for (int i = 0; i < N; i++) {
+		int index = i * P;
+		keepRange.push_back(index);
+	}
+
+	int fitnessSum = 0;
+	for (auto value : keepRange) {
+		int i = 0;
+		while (fitnessSum < value) {
+			fitnessSum += genePool[i].getPathLength();
+			i++;
+		}
+		parents.push_back(genePool[i]);
+	}
+}
+
 
 //doesn't work
 void exponentialRankSelection(vector<Trip>& genePool, vector<Trip>& parents, int selectionPressure) {
