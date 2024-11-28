@@ -82,11 +82,11 @@ CrossoverFunc selectCrossoverFunction(const std::string& crossoverType) {
 //Note need to change num cities in crossover.h
 int main(int argc, char* argv[]) {
 	//Defaults - can run w/o args given just fine
-	string crossoverType = "SPX"; //SPX,ERX,UX...can optimize the branching with these
-	string mutationType = "M"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
+	string crossoverType = "ERX"; //SPX,ERX,UX...can optimize the branching with these
+	string mutationType = "S"; //R (Scramble), S (Simple Swap), M (Moro Mutate)
 	string selectionType = "SUSN"; //SUS (Stochastic Universal Sampling, RWS (Roulette Wheel Selection), LRS (Linear Rank Selection), newRWS, MDEV - mean deviation
 	string filePath = "./tsp/original10.tsp";
-	int maxGenerations = 100;
+	int maxGenerations = 500;
 	int populationSize = 32;
 	int nn = 0;
 	if (argc < 6) {
@@ -189,7 +189,6 @@ int main(int argc, char* argv[]) {
 		else if (selectionType == "LRS") linearRankSelection(genePool, parents, 2);
 		else if (selectionType == "MDEV") meanDevSelection(genePool, parents);
 		else if (selectionType == "SUSN") SUSSelectionNew(genePool, parents);
-
 		//Breeding of children, creation of child genes?
 		vector<Trip> children;
 		if (crossoverType == "ERX") {
@@ -200,7 +199,7 @@ int main(int argc, char* argv[]) {
 				crossoverFunction(parents[i], parents[i + 1], children, numCities);
 			}
 			//choosing different cities, instead of i and i +1, we choose i and n-i, then converge to the middle two
-			for (size_t i = 0; i + 1 < n / 2; i++) {
+			for (size_t i = 0; i  < n / 2; i++) {
 				crossoverFunction(parents[i], parents[n - i - 1], children, numCities);
 			}
 		}
