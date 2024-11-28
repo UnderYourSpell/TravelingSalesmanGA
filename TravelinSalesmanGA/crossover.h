@@ -131,6 +131,7 @@ void SUSSelectionNew(vector<Trip>& genePool, vector<Trip>& parents) {
 	int fitnessSum = 0;
 	for (auto value : keepRange) {
 		int i = 0;
+		int fitnessSum = 0;
 		while (fitnessSum < value) {
 			fitnessSum += genePool[i].getPathLength();
 			i++;
